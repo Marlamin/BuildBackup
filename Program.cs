@@ -11,7 +11,7 @@ using System.Text;
 
 namespace BuildBackup
 {
-    class Program
+    partial class Program
     {
         private static readonly Uri baseUrl = new Uri("http://us.patch.battle.net:1119/");
 
@@ -66,42 +66,7 @@ namespace BuildBackup
             {
                 if (args[0] == "missingfiles")
                 {
-                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig");
-
-                    buildConfig = GetBuildConfig("wow", Path.Combine(cacheDir, "tpr", "wow"), args[1]);
-                    if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
-
-                    cdnConfig = GetCDNconfig("wow", Path.Combine(cacheDir, "tpr", "wow"), args[2]);
-                    if (cdnConfig.archives == null) { Console.WriteLine("Invalid cdnConfig"); }
-
-                    encoding = GetEncoding(Path.Combine(cacheDir, "tpr", "wow"), buildConfig.encoding[1]);
-
-                    Dictionary<string, string> hashes = new Dictionary<string, string>();
-
-                    foreach (var entry in encoding.aEntries)
-                    {
-                        if (entry.hash == buildConfig.root.ToUpper()) { root = GetRoot(Path.Combine(cacheDir, "tpr", "wow"), entry.hash.ToLower()); }
-                        if (!hashes.ContainsKey(entry.key)) { hashes.Add(entry.key, entry.hash); }
-                    }
-
-                    indexes = GetIndexes(Path.Combine(cacheDir, "tpr", "wow"), cdnConfig.archives);
-
-                    foreach (var index in indexes)
-                    {
-                        // If respective archive does not exist, add to separate list
-
-
-
-                        // Remove from list as usual
-                        foreach (var entry in index.archiveIndexEntries)
-                        {
-                            hashes.Remove(entry.headerHash);
-                        }
-                    }
-
-                    // Run through root to see which file hashes belong to which missing file and put those in a list
-                    // Run through listfile to see if files are known
-                    Environment.Exit(0);
+                    MissingFiles(args[1], args[2]);
                 }
                 if (args[0] == "dumpinfo")
                 {
