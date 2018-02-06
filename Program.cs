@@ -66,6 +66,7 @@ namespace BuildBackup
             {
                 if (args[0] == "missingfiles")
                 {
+                    CheckArgumentsCount(2, args, new[] {"buildConfigHash", "cdnConfigHash"});
                     MissingFiles(args[1], args[2]);
                 }
                 if (args[0] == "dumpinfo")
@@ -955,6 +956,13 @@ namespace BuildBackup
                 Console.Write("..done\n");
 
                 GC.Collect();
+            }
+        }
+
+        private static void CheckArgumentsCount(int requiredArgumentsCount, string[] args, string[] requiredArguments) {
+            if (args.Length != requiredArgumentsCount + 1) { // First argument is always the executable name
+                var requiredArgumentsString = string.Join(", ", requiredArguments);
+                throw new Exception("Not enough arguments. Required: " + requiredArgumentsString);
             }
         }
 
