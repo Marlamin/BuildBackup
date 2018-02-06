@@ -41,7 +41,6 @@ namespace BuildBackup
         private static HttpClient httpClient;
 
         private static Salsa20 salsa = new Salsa20();
-
         private static Salsa20 SalsaInstance => salsa;
 
         private static bool isEncrypted = false;
@@ -66,55 +65,8 @@ namespace BuildBackup
             {
                 if (args[0] == "dumpinfo")
                 {
-                    if (args.Length != 4) throw new Exception("Not enough arguments. Need mode, product, buildconfig, cdnconfig");
-
-                    cdns = GetCDNs(args[1]);
-
-                    buildConfig = GetBuildConfig(args[1], Path.Combine(cacheDir, cdns.entries[0].path), args[2]);
-                    if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
-
-                    cdnConfig = GetCDNconfig(args[1], Path.Combine(cacheDir, cdns.entries[0].path), args[3]);
-                    if (cdnConfig.archives == null) { Console.WriteLine("Invalid cdnConfig"); }
-
-                    encoding = GetEncoding(Path.Combine(cacheDir, cdns.entries[0].path), buildConfig.encoding[1]);
-
-                    string rootKey = "";
-                    string downloadKey = "";
-                    string installKey = "";
-
-                    Dictionary<string, string> hashes = new Dictionary<string, string>();
-
-                    foreach (var entry in encoding.aEntries)
-                    {
-                        if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key; Console.WriteLine("root = " + entry.key.ToLower()); }
-                        if (entry.hash == buildConfig.download[0].ToUpper()) { downloadKey = entry.key; Console.WriteLine("download = " + entry.key.ToLower()); }
-                        if (entry.hash == buildConfig.install[0].ToUpper()) { installKey = entry.key; Console.WriteLine("install = " + entry.key.ToLower()); }
-                        if (!hashes.ContainsKey(entry.key)) { hashes.Add(entry.key, entry.hash); }
-                    }
-
-                    indexes = GetIndexes(Path.Combine(cacheDir, cdns.entries[0].path), cdnConfig.archives);
-
-                    foreach (var index in indexes)
-                    {
-                        //Console.WriteLine("Checking " + index.name + " " + index.archiveIndexEntries.Count() + " entries");
-                        foreach (var entry in index.archiveIndexEntries)
-                        {
-                            hashes.Remove(entry.headerHash);
-                            //Console.WriteLine("Removing " + entry.headerHash.ToLower() + " from list");
-                        }
-                    }
-
-                    int h = 1;
-                    var tot = hashes.Count;
-
-                    foreach (var entry in hashes)
-                    {
-                        //Console.WriteLine("[" + h + "/" + tot + "] Downloading " + entry.Key);
-                        Console.WriteLine("unarchived = " + entry.Key.ToLower());
-                        h++;
-                    }
-
-                    Environment.Exit(1);
+                    CheckArgumentsCount(3, args, new[] {"product", "buildconfig", "cdnconfig"});
+                    DumpInfo(args[1], args[2], args[3]);                    
                 }
                 if (args[0] == "dumproot")
                 {
