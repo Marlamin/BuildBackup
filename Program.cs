@@ -68,6 +68,11 @@ namespace BuildBackup
                     CheckArgumentsCount(3, args, new[] {"product", "buildconfig", "cdnconfig"});
                     DumpInfo(args[1], args[2], args[3]);                    
                 }
+                if (args[0] == "dumpinstall")
+                {
+                    CheckArgumentsCount(1, args, new [] {"program", "installHash"});
+                    DumpInstall(args[1], args[2]);
+                }
                 if (args[0] == "dumproot2") // TODO rename to dumproot
                 {
                     CheckArgumentsCount(1, args, new [] {"rootHash"});
@@ -173,18 +178,7 @@ namespace BuildBackup
                     }
                     Environment.Exit(0);
                 }
-                if (args[0] == "dumpinstall")
-                {
-                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, install");
 
-                    cdns = GetCDNs(args[1]);
-                    install = GetInstall("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", args[2], true);
-                    foreach (var entry in install.entries)
-                    {
-                        Console.WriteLine(entry.name + " (size: " + entry.size + ", md5: " + BitConverter.ToString(entry.contentHash).Replace("-", string.Empty).ToLower() + ", tags: " + string.Join(",", entry.tags) + ")");
-                    }
-                    Environment.Exit(0);
-                }
                 if (args[0] == "extractfilebycontenthash" || args[0] == "extractrawfilebycontenthash")
                 {
                     if (args.Length != 6) throw new Exception("Not enough arguments. Need mode, product, buildconfig, cdnconfig, contenthash, outname");
