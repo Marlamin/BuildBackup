@@ -65,7 +65,7 @@ namespace BuildBackup
             {
                 if (args[0] == "dumpinfo")
                 {
-                    CheckArgumentsCount(3, args, new[] {"product", "buildconfig", "cdnconfig"});
+                    CheckArgumentsCount(3, args, new[] {"program", "buildconfig", "cdnconfig"});
                     DumpInfo(args[1], args[2], args[3]);                    
                 }
                 if (args[0] == "dumpinstall")
