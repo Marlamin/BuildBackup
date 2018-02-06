@@ -64,11 +64,6 @@ namespace BuildBackup
 
             if (args.Length > 0)
             {
-                if (args[0] == "missingfiles")
-                {
-                    CheckArgumentsCount(2, args, new[] {"buildConfigHash", "cdnConfigHash"});
-                    MissingFiles(args[1], args[2]);
-                }
                 if (args[0] == "dumpinfo")
                 {
                     if (args.Length != 4) throw new Exception("Not enough arguments. Need mode, product, buildconfig, cdnconfig");
