@@ -477,65 +477,8 @@ namespace BuildBackup
                         checkPrograms = new string[] { args[1] };
                     }
                 }
-                if (args[0] == "dumpencrypted")
-                {
-                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, buildconfig");
-
-                    if (args[1] != "wow")
-                    {
-                        Console.WriteLine("Only WoW is currently supported due to root/fileDataID usage");
-                        return;
-                    }
-
-                    cdns = GetCDNs(args[1]);
-
-                    buildConfig = GetBuildConfig(args[1], Path.Combine(cacheDir, cdns.entries[0].path), args[2]);
-
-                    encoding = GetEncoding(Path.Combine(cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true);
-
-                    var encryptedKeys = new Dictionary<string, string>();
-                    var encryptedSizes = new Dictionary<string, ulong>();
-                    foreach (var entry in encoding.bEntries)
-                    {
-                        var stringBlockEntry = encoding.stringBlockEntries[entry.stringIndex];
-                        if (stringBlockEntry.Contains("e:"))
-                        {
-                            encryptedKeys.Add(entry.key, stringBlockEntry);
-                            encryptedSizes.Add(entry.key, entry.compressedSize);
-                        }
-                    }
-
-                    string rootKey = "";
-                    var encryptedContentHashes = new Dictionary<string, string>();
-                    var encryptedContentSizes = new Dictionary<string, ulong>();
-                    foreach (var entry in encoding.aEntries)
-                    {
-                        if (encryptedKeys.ContainsKey(entry.key))
-                        {
-                            encryptedContentHashes.Add(entry.hash, encryptedKeys[entry.key]);
-                            encryptedContentSizes.Add(entry.hash, encryptedSizes[entry.key]);
-                        }
-
-                        if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key.ToLower(); }
-                    }
-
-                    root = GetRoot(Path.Combine(cacheDir, cdns.entries[0].path), rootKey, true);
-
-                    foreach(var entry in root.entries)
-                    {
-                        foreach (var subentry in entry.Value)
-                        {
-                            if (encryptedContentHashes.ContainsKey(BitConverter.ToString(subentry.md5).Replace("-", "")))
-                            {
-                                var stringBlock = encryptedContentHashes[BitConverter.ToString(subentry.md5).Replace("-", "")];
-                                var encryptionKey = stringBlock.Substring(stringBlock.IndexOf("e:{") + 3, 16);
-                                Console.WriteLine(subentry.fileDataID + " " + encryptionKey + " " + stringBlock + " " + encryptedContentSizes[BitConverter.ToString(subentry.md5).Replace("-", "")]);
-                                break;
-                            }
-                        }
-                    }
-
-                    Environment.Exit(0);
+                if (args[0] == "dumpencrypted") {
+                    CheckArgumentsCount(2, args, new[] {"program", "buildConfigHash"});
                 }
                 if (args[0] == "dumprawfile")
                 {
