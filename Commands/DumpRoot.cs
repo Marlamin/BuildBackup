@@ -43,7 +43,6 @@ namespace BuildBackup
                         Console.WriteLine(";" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower());
                     }
                 }
-
             }
 
             Environment.Exit(0);
