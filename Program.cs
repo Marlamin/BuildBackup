@@ -11,7 +11,7 @@ using System.Text;
 
 namespace BuildBackup
 {
-    class Program
+    partial class Program
     {
         private static readonly Uri baseUrl = new Uri("http://us.patch.battle.net:1119/");
 
@@ -63,6 +63,10 @@ namespace BuildBackup
 
             if (args.Length > 0)
             {
+                if (args[0] == "dumpinfo")
+                {
+                    CheckArgumentsCount(3, args, new[] {"program", "buildconfig", "cdnconfig"});
+                    DumpInfo(args[1], args[2], args[3]);                    
                 if (args[0] == "missingfiles")
                 {
                     if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig");
@@ -89,158 +93,20 @@ namespace BuildBackup
                     // Run through listfile to see if files are known
                     Environment.Exit(0);
                 }
-                if (args[0] == "dumpinfo")
+                if (args[0] == "dumpinstall")
                 {
-                    if (args.Length != 4) throw new Exception("Not enough arguments. Need mode, product, buildconfig, cdnconfig");
-
-                    cdns = GetCDNs(args[1]);
-
-                    buildConfig = GetBuildConfig(args[1], Path.Combine(cacheDir, cdns.entries[0].path), args[2]);
-                    if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
-
-                    cdnConfig = GetCDNconfig(args[1], Path.Combine(cacheDir, cdns.entries[0].path), args[3]);
-                    if (cdnConfig.archives == null) { Console.WriteLine("Invalid cdnConfig"); }
-
-                    encoding = GetEncoding(Path.Combine(cacheDir, cdns.entries[0].path), buildConfig.encoding[1]);
-
-                    string rootKey = "";
-                    string downloadKey = "";
-                    string installKey = "";
-
-                    if(buildConfig.download.Length == 2)
-                    {
-                        downloadKey = buildConfig.download[1];
-                        Console.WriteLine("download = " + downloadKey.ToLower());
-                    }
-
-                    if(buildConfig.install.Length == 2)
-                    {
-                        installKey = buildConfig.install[1];
-                        Console.WriteLine("install = " + installKey.ToLower());
-                    }
-
-                    Dictionary<string, string> hashes = new Dictionary<string, string>();
-
-                    foreach (var entry in encoding.aEntries)
-                    {
-                        if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key; Console.WriteLine("root = " + entry.key.ToLower()); }
-                        if (string.IsNullOrEmpty(downloadKey) && entry.hash == buildConfig.download[0].ToUpper()) { downloadKey = entry.key; Console.WriteLine("download = " + entry.key.ToLower()); }
-                        if (string.IsNullOrEmpty(installKey) && entry.hash == buildConfig.install[0].ToUpper()) { installKey = entry.key; Console.WriteLine("install = " + entry.key.ToLower()); }
-                        if (!hashes.ContainsKey(entry.key)) { hashes.Add(entry.key, entry.hash); }
-                    }
-
-                    GetIndexes(Path.Combine(cacheDir, cdns.entries[0].path), cdnConfig.archives);
-
-                    foreach (var entry in indexDictionary)
-                    {
-                        hashes.Remove(entry.Key.ToUpper());
-                    }
-
-                    int h = 1;
-                    var tot = hashes.Count;
-
-                    foreach (var entry in hashes)
-                    {
-                        //Console.WriteLine("[" + h + "/" + tot + "] Downloading " + entry.Key);
-                        Console.WriteLine("unarchived = " + entry.Key.ToLower());
-                        h++;
-                    }
-
-                    Environment.Exit(1);
+                    CheckArgumentsCount(1, args, new [] {"program", "installHash"});
+                    DumpInstall(args[1], args[2]);
                 }
-                if (args[0] == "dumproot")
+                if (args[0] == "dumproot2") // TODO rename to dumproot
                 {
-                    if (args.Length != 2) throw new Exception("Not enough arguments. Need mode, root");
-                    cdns = GetCDNs("wow");
-
-                    var fileNames = new Dictionary<ulong, string>();
-
-                    var hasher = new Jenkins96();
-                    foreach (var line in File.ReadLines("listfile.txt"))
-                    {
-                        fileNames.Add(hasher.ComputeHash(line), line);
-                    }
-
-                    var root = GetRoot("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", args[1], true);
-
-                    foreach (var entry in root.entries)
-                    {
-                        foreach (var subentry in entry.Value)
-                        {
-                            if (subentry.contentFlags.HasFlag(ContentFlags.LowViolence)) continue;
-
-                            if (!subentry.localeFlags.HasFlag(LocaleFlags.All_WoW) && !subentry.localeFlags.HasFlag(LocaleFlags.enUS))
-                            {
-                                continue;
-                            }
-
-                            if (fileNames.ContainsKey(entry.Key))
-                            {
-                                Console.WriteLine(fileNames[entry.Key] + ";" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower());
-                            }
-                            else
-                            {
-                                Console.WriteLine("unknown;" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower());
-                            }
-                        }
-
-                    }
-
-                    Environment.Exit(0);
-                }
-                if (args[0] == "dumproot2")
-                {
-                    if (args.Length != 2) throw new Exception("Not enough arguments. Need mode, root");
-                    cdns = GetCDNs("wow");
-
-                    var fileNames = new Dictionary<ulong, string>();
-
-                    var hasher = new Jenkins96();
-                    foreach (var line in File.ReadLines("listfile.txt"))
-                    {
-                        fileNames.Add(hasher.ComputeHash(line), line);
-                    }
-
-                    var root = GetRoot("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", args[1], true);
-
-                    foreach (var entry in root.entries)
-                    {
-                        foreach (var subentry in entry.Value)
-                        {
-                            if (entry.Value.Count() > 1)
-                            {
-                                if (subentry.contentFlags.HasFlag(ContentFlags.LowViolence)){
-                                    continue;
-                                }
-
-                                if (!subentry.localeFlags.HasFlag(LocaleFlags.All_WoW) && !subentry.localeFlags.HasFlag(LocaleFlags.enUS))
-                                {
-                                    continue;
-                                }
-                            }
-
-                            if (fileNames.ContainsKey(entry.Key))
-                            {
-                                Console.WriteLine(fileNames[entry.Key] + ";" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower());
-                            }
-                            else
-                            {
-                                Console.WriteLine(";" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower());
-                            }
-                        }
-
-                    }
-
-                    Environment.Exit(0);
+                    CheckArgumentsCount(1, args, new [] {"rootHash"});
+                    DumpRoot(args[1]);
                 }
                 if (args[0] == "diffroot")
                 {
-                    var from = args[1];
-                    var to = args[2];
-
-                    DiffRoot(from, to);
-
-                    Environment.Exit(0);
+                    CheckArgumentsCount(1, args, new [] {"fromRootHash", "toRootHash"});
+                    DiffRoot(args[1], args[2]);
                 }
                 if (args[0] == "calchash")
                 {
@@ -272,18 +138,7 @@ namespace BuildBackup
                     }
                     Environment.Exit(0);
                 }
-                if (args[0] == "dumpinstall")
-                {
-                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, install");
 
-                    cdns = GetCDNs(args[1]);
-                    install = GetInstall("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", args[2], true);
-                    foreach (var entry in install.entries)
-                    {
-                        Console.WriteLine(entry.name + " (size: " + entry.size + ", md5: " + BitConverter.ToString(entry.contentHash).Replace("-", string.Empty).ToLower() + ", tags: " + string.Join(",", entry.tags) + ")");
-                    }
-                    Environment.Exit(0);
-                }
                 if (args[0] == "extractfilebycontenthash" || args[0] == "extractrawfilebycontenthash")
                 {
                     if (args.Length != 6) throw new Exception("Not enough arguments. Need mode, product, buildconfig, cdnconfig, contenthash, outname");
@@ -558,65 +413,8 @@ namespace BuildBackup
                         checkPrograms = new string[] { args[1] };
                     }
                 }
-                if (args[0] == "dumpencrypted")
-                {
-                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, buildconfig");
-
-                    if (args[1] != "wow")
-                    {
-                        Console.WriteLine("Only WoW is currently supported due to root/fileDataID usage");
-                        return;
-                    }
-
-                    cdns = GetCDNs(args[1]);
-
-                    buildConfig = GetBuildConfig(args[1], Path.Combine(cacheDir, cdns.entries[0].path), args[2]);
-
-                    encoding = GetEncoding(Path.Combine(cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true);
-
-                    var encryptedKeys = new Dictionary<string, string>();
-                    var encryptedSizes = new Dictionary<string, ulong>();
-                    foreach (var entry in encoding.bEntries)
-                    {
-                        var stringBlockEntry = encoding.stringBlockEntries[entry.stringIndex];
-                        if (stringBlockEntry.Contains("e:"))
-                        {
-                            encryptedKeys.Add(entry.key, stringBlockEntry);
-                            encryptedSizes.Add(entry.key, entry.compressedSize);
-                        }
-                    }
-
-                    string rootKey = "";
-                    var encryptedContentHashes = new Dictionary<string, string>();
-                    var encryptedContentSizes = new Dictionary<string, ulong>();
-                    foreach (var entry in encoding.aEntries)
-                    {
-                        if (encryptedKeys.ContainsKey(entry.key))
-                        {
-                            encryptedContentHashes.Add(entry.hash, encryptedKeys[entry.key]);
-                            encryptedContentSizes.Add(entry.hash, encryptedSizes[entry.key]);
-                        }
-
-                        if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key.ToLower(); }
-                    }
-
-                    root = GetRoot(Path.Combine(cacheDir, cdns.entries[0].path), rootKey, true);
-
-                    foreach(var entry in root.entries)
-                    {
-                        foreach (var subentry in entry.Value)
-                        {
-                            if (encryptedContentHashes.ContainsKey(BitConverter.ToString(subentry.md5).Replace("-", "")))
-                            {
-                                var stringBlock = encryptedContentHashes[BitConverter.ToString(subentry.md5).Replace("-", "")];
-                                var encryptionKey = stringBlock.Substring(stringBlock.IndexOf("e:{") + 3, 16);
-                                Console.WriteLine(subentry.fileDataID + " " + encryptionKey + " " + stringBlock + " " + encryptedContentSizes[BitConverter.ToString(subentry.md5).Replace("-", "")]);
-                                break;
-                            }
-                        }
-                    }
-
-                    Environment.Exit(0);
+                if (args[0] == "dumpencrypted") {
+                    CheckArgumentsCount(2, args, new[] {"program", "buildConfigHash"});
                 }
                 if (args[0] == "dumprawfile")
                 {
@@ -631,7 +429,7 @@ namespace BuildBackup
             {
                 checkPrograms = new string[] { "agent", "bna", "bnt", "clnt", "d3", "d3cn", "d3t", "demo", "hero", "herot", "hsb", "hst", "pro", "proc", "prot", "prodev", "sc2", "s2", "s2t", "s2b", "test", "storm", "war3", "wow", "wowt", "wowdev", "wow_beta", "s1", "s1t", "s1a", "catalogs", "w3", "w3t", "wowz" };
             }
-            //checkPrograms = new string[] { "wow" };
+              
             backupPrograms = new string[] { "agent", "bna", "pro", "prot", "proc", "wow", "wowt", "wow_beta", "s1", "s1t", "w3", "s1a", "w3t", "wowdev", "wowz" };
 
             foreach (string program in checkPrograms)
@@ -832,6 +630,12 @@ namespace BuildBackup
                 GC.Collect();
             }
         }
+
+        private static void CheckArgumentsCount(int requiredArgumentsCount, string[] args, string[] requiredArguments) {
+            if (args.Length != requiredArgumentsCount + 1) { // First argument is always the executable name
+                var requiredArgumentsString = string.Join(", ", requiredArguments);
+                throw new Exception("Not enough arguments. Required: " + requiredArgumentsString);
+            }
 
         private static byte[] RetrieveFileBytes(string target, bool raw = false)
         {
