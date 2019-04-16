@@ -1,4 +1,4 @@
-﻿using Ribbit.Constants;
+using Ribbit.Constants;
 using Ribbit.Protocol;
 using System;
 using System.Collections;
@@ -73,13 +73,13 @@ namespace BuildBackup
                     string downloadKey = "";
                     string installKey = "";
 
-                    if(buildConfig.download.Length == 2)
+                    if (buildConfig.download.Length == 2)
                     {
                         downloadKey = buildConfig.download[1];
                         Console.WriteLine("download = " + downloadKey.ToLower());
                     }
 
-                    if(buildConfig.install.Length == 2)
+                    if (buildConfig.install.Length == 2)
                     {
                         installKey = buildConfig.install[1];
                         Console.WriteLine("install = " + installKey.ToLower());
@@ -207,8 +207,8 @@ namespace BuildBackup
                 if (args[0] == "calchashlistfile")
                 {
                     string target = "";
-                    
-                    if(args.Length == 2 && File.Exists(args[1]))
+
+                    if (args.Length == 2 && File.Exists(args[1]))
                     {
                         target = args[1];
                     }
@@ -257,7 +257,8 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.hash.ToLower() == args[4]) {
+                        if (entry.hash.ToLower() == args[4])
+                        {
                             target = entry.key.ToLower();
                             break;
                         }
@@ -409,7 +410,7 @@ namespace BuildBackup
                             continue;
                         }
                     }
-                    
+
                     var fileList = new Dictionary<string, List<string>>();
 
                     Console.WriteLine("Looking up in encoding..");
@@ -565,7 +566,7 @@ namespace BuildBackup
 
                     root = GetRoot(Path.Combine(cdn.cacheDir, cdns.entries[0].path), rootKey, true);
 
-                    foreach(var entry in root.entries)
+                    foreach (var entry in root.entries)
                     {
                         foreach (var subentry in entry.Value)
                         {
@@ -600,7 +601,7 @@ namespace BuildBackup
                     cdns = GetCDNs(args[1]);
 
                     var index = ParseIndex("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", args[2]);
-                    foreach(var entry in index)
+                    foreach (var entry in index)
                     {
                         Console.WriteLine(entry.Key + " " + entry.Value.size);
                     }
@@ -611,7 +612,7 @@ namespace BuildBackup
             // Load programs
             if (checkPrograms == null)
             {
-                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic"};
+                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic" };
             }
 
             backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo" };
@@ -672,12 +673,13 @@ namespace BuildBackup
                 }
 
                 // Retrieve all buildconfigs
-                for(var i = 0; i < versions.entries.Count(); i++)
+                for (var i = 0; i < versions.entries.Count(); i++)
                 {
                     GetBuildConfig("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", versions.entries[i].buildConfig);
                 }
 
-                if (string.IsNullOrWhiteSpace(buildConfig.buildName)) {
+                if (string.IsNullOrWhiteSpace(buildConfig.buildName))
+                {
                     Console.WriteLine("Missing buildname in buildConfig for " + program + ", setting build name!");
                     buildConfig.buildName = "UNKNOWN";
                 }
@@ -695,7 +697,7 @@ namespace BuildBackup
                 {
                     cdnBuildConfigs = new BuildConfigFile[cdnConfig.builds.Count()];
                 }
-                else if(cdnConfig.archives != null)
+                else if (cdnConfig.archives != null)
                 {
                     //Console.WriteLine("CDNConfig loaded, " + cdnConfig.archives.Count() + " archives");
                 }
@@ -741,7 +743,7 @@ namespace BuildBackup
                 Console.Write("..done\n");
 
                 Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
-                foreach(var archive in cdnConfig.archives)
+                foreach (var archive in cdnConfig.archives)
                 {
                     cdn.Get("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive, false);
                 }
@@ -816,7 +818,8 @@ namespace BuildBackup
                     {
                         if (installKey == "") { Console.WriteLine("Unable to find install key in encoding!"); } else { install = GetInstall("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", installKey); }
 
-                    }catch(Exception e)
+                    }
+                    catch (Exception e)
                     {
                         Console.WriteLine("Error loading install: " + e.Message);
                     }
@@ -876,11 +879,11 @@ namespace BuildBackup
                     Console.Write("..done\n");
 
                     var unarchivedPatchKeyList = new List<string>();
-                    foreach(var block in patch.blocks)
+                    foreach (var block in patch.blocks)
                     {
-                        foreach(var fileBlock in block.files)
+                        foreach (var fileBlock in block.files)
                         {
-                            foreach(var patch in fileBlock.patches)
+                            foreach (var patch in fileBlock.patches)
                             {
                                 var pKey = BitConverter.ToString(patch.patchEncodingKey).Replace("-", "");
                                 if (!patchIndexDictionary.ContainsKey(pKey))
@@ -891,7 +894,7 @@ namespace BuildBackup
                         }
                     }
 
-                    if(unarchivedPatchKeyList.Count > 0)
+                    if (unarchivedPatchKeyList.Count > 0)
                     {
                         Console.Write("Downloading " + unarchivedPatchKeyList.Count + " unarchived patch files..");
 
@@ -1496,7 +1499,7 @@ namespace BuildBackup
                 footer.footerChecksum = bin.ReadBytes(footer.checksumSize);
 
                 // TODO: Read numElements as BE if it is wrong as LE
-                if((footer.numElements & 0xff000000) != 0)
+                if ((footer.numElements & 0xff000000) != 0)
                 {
                     bin.BaseStream.Position -= footer.checksumSize + 4;
                     footer.numElements = bin.ReadUInt32(true);
@@ -1532,7 +1535,7 @@ namespace BuildBackup
                             // Archive index
                             entry.offset = bin.ReadUInt32(true);
                         }
-                        else if(footer.offsetBytes == 6)
+                        else if (footer.offsetBytes == 6)
                         {
                             // Group index
                             throw new NotImplementedException("Group index reading is not implemented!");
@@ -1542,7 +1545,7 @@ namespace BuildBackup
                             // File index
                         }
 
-                        if(entry.size != 0)
+                        if (entry.size != 0)
                         {
                             returnDict.Add(headerHash, entry);
                         }
@@ -1971,7 +1974,7 @@ namespace BuildBackup
                 var tableAstart = bin.BaseStream.Position;
 
                 List<EncodingFileEntry> entries = new List<EncodingFileEntry>();
-                    
+
                 for (int i = 0; i < encoding.numEntriesA; i++)
                 {
                     ushort keysCount;
@@ -1984,7 +1987,7 @@ namespace BuildBackup
                             hash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", ""),
                             key = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "")
                         };
-                            
+
                         // @TODO add support for multiple encoding keys
                         for (int key = 0; key < entry.keyCount - 1; key++)
                         {
@@ -2042,7 +2045,7 @@ namespace BuildBackup
                         compressedSize = bin.ReadUInt40(true)
                     };
 
-                    if(entry.stringIndex == uint.MaxValue) break;
+                    if (entry.stringIndex == uint.MaxValue) break;
 
                     b_entries.Add(entry);
                 }
@@ -2080,7 +2083,7 @@ namespace BuildBackup
                 patchFile.encodingSpec = new string(bin.ReadChars(patchFile.especLength));
 
                 patchFile.blocks = new PatchBlock[patchFile.blockCount];
-                for(var i = 0; i < patchFile.blockCount; i++)
+                for (var i = 0; i < patchFile.blockCount; i++)
                 {
                     patchFile.blocks[i].lastFileContentKey = bin.ReadBytes(patchFile.fileKeySize);
                     patchFile.blocks[i].blockMD5 = bin.ReadBytes(16);
@@ -2102,7 +2105,7 @@ namespace BuildBackup
 
                         var filePatches = new List<FilePatch>();
 
-                        for(var j = 0; j < file.numPatches; j++)
+                        for (var j = 0; j < file.numPatches; j++)
                         {
                             var filePatch = new FilePatch();
                             filePatch.sourceFileEncodingKey = bin.ReadBytes(patchFile.fileKeySize);
@@ -2144,12 +2147,12 @@ namespace BuildBackup
 
         private static void DiffRoot(String fromCDNRoot, String toCDNRoot)
         {
-           // cdns = GetCDNs("wow");
+            cdns = GetCDNs("wow");
             var hasher = new Jenkins96();
 
-            var rootFrom = GetRoot("http://cdn.blizzard.com/tpr/wow/", fromCDNRoot, true);
-          
-            var rootTo = GetRoot("http://cdn.blizzard.com/tpr/wow/", toCDNRoot, true);
+            // Note the conversion to FDID => Entry at the end.
+            var rootFrom = GetRoot("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", fromCDNRoot, true).entries.ToDictionary(x => x.Value.First().fileDataID, x => x.Value);
+            var rootTo = GetRoot("http://" + cdns.entries[0].hosts[0] + "/" + cdns.entries[0].path + "/", toCDNRoot, true).entries.ToDictionary(x => x.Value.First().fileDataID, x => x.Value);
 
             UpdateListfile();
 
@@ -2158,8 +2161,8 @@ namespace BuildBackup
                 .Select<string, Tuple<ulong, string>>(fileName => new Tuple<ulong, string>(hasher.ComputeHash(fileName), fileName))
                 .ToDictionary(key => key.Item1, value => value.Item2);
 
-            var fromEntries = rootFrom.entries.Keys.ToHashSet();
-            var toEntries = rootTo.entries.Keys.ToHashSet();
+            var fromEntries = rootFrom.Keys.ToHashSet();
+            var toEntries = rootTo.Keys.ToHashSet();
 
             var commonEntries = fromEntries.Intersect(toEntries);
             var removedEntries = fromEntries.Except(commonEntries);
@@ -2175,21 +2178,22 @@ namespace BuildBackup
                 Console.WriteLine("[{0}] <b>{1}</b> (lookup: {2}, content md5: {3}, FileData ID: {4})", action, fileName, lookup, md5, entry.fileDataID);
             };
 
-            foreach (var id in addedEntries) {
-                var entry = rootTo.entries[id].First();
+            foreach (var id in addedEntries)
+            {
+                var entry = rootTo[id].First();
                 print(entry, "ADDED");
             }
 
             foreach (var id in removedEntries)
             {
-                var entry = rootFrom.entries[id].First();
+                var entry = rootFrom[id].First();
                 print(entry, "REMOVED");
             }
 
             foreach (var id in commonEntries)
             {
-                var originalFile = rootFrom.entries[id].First();
-                var patchedFile = rootTo.entries[id].First();
+                var originalFile = rootFrom[id].First();
+                var patchedFile = rootTo[id].First();
 
                 if (originalFile.md5.SequenceEqual(patchedFile.md5))
                 {
