@@ -287,7 +287,7 @@ namespace BuildBackup
         DoNotLoad = 0x100,
         F00000200 = 0x200,
         F00000400 = 0x400,
-        F00000800 = 0x800,
+        UpdatePlugin = 0x800,
         F00001000 = 0x1000,
         F00002000 = 0x2000,
         F00004000 = 0x4000,
@@ -305,7 +305,7 @@ namespace BuildBackup
         F04000000 = 0x4000000,
         Encrypted = 0x8000000,
         NoNames = 0x10000000,
-        F20000000 = 0x20000000, // added in 21737
+        UncommonRes = 0x20000000, // added in 21737
         Bundle = 0x40000000,
         NoCompression = 0x80000000 // sounds have this flag
     }

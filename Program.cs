@@ -12,7 +12,7 @@ namespace BuildBackup
 {
     class Program
     {
-        private static readonly Uri baseUrl = new Uri("http://eu.patch.battle.net:1119/");
+        private static readonly Uri baseUrl = new Uri("http://us.patch.battle.net:1119/");
 
         private static string[] checkPrograms;
         private static string[] backupPrograms;
@@ -44,7 +44,7 @@ namespace BuildBackup
 
         private static CDN cdn = new CDN();
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             cdn.cacheDir = SettingsManager.cacheDir;
             cdn.client = new HttpClient();
@@ -80,7 +80,7 @@ namespace BuildBackup
                     cdnConfig = GetCDNconfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[3]);
                     if (cdnConfig.archives == null) { Console.WriteLine("Invalid cdnConfig"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1]);
+                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1]).Result;
 
                     string rootKey = "";
                     string downloadKey = "";
@@ -208,6 +208,23 @@ namespace BuildBackup
 
                     Environment.Exit(0);
                 }
+                if (args[0] == "dumproot3")
+                {
+                    if (args.Length != 2) throw new Exception("Not enough arguments. Need mode, root");
+                    cdns = GetCDNs("wow");
+
+                    var root = GetRoot(cdns.entries[0].path + "/", args[1], true);
+
+                    foreach (var entry in root.entriesFDID)
+                    {
+                        foreach (var subentry in entry.Value)
+                        {
+                            Console.WriteLine(subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower() + ";" + subentry.localeFlags.ToString() + ";" + subentry.contentFlags.ToString());
+                        }
+                    }
+
+                    Environment.Exit(0);
+                }
                 if (args[0] == "calchash")
                 {
                     var hasher = new Jenkins96();
@@ -251,13 +268,12 @@ namespace BuildBackup
                     }
                     Environment.Exit(0);
                 }
-
                 if (args[0] == "dumpencoding")
                 {
                     if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, encoding");
 
                     cdns = GetCDNs(args[1]);
-                    encoding = GetEncoding(cdns.entries[0].path + "/", args[2], 0, true);
+                    encoding = GetEncoding(cdns.entries[0].path + "/", args[2], 0, true).Result;
                     foreach (var entry in encoding.aEntries)
                     {
                         var table2Entry = encoding.bEntries[entry.key];
@@ -266,7 +282,6 @@ namespace BuildBackup
                     Console.WriteLine("ENCODINGESPEC " + encoding.encodingESpec);
                     Environment.Exit(0);
                 }
-
                 if (args[0] == "extractfilebycontenthash" || args[0] == "extractrawfilebycontenthash")
                 {
                     if (args.Length != 6) throw new Exception("Not enough arguments. Need mode, product, buildconfig, cdnconfig, contenthash, outname");
@@ -278,7 +293,7 @@ namespace BuildBackup
                     buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[2]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1]);
+                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1]).Result;
 
                     string target = "";
 
@@ -322,7 +337,7 @@ namespace BuildBackup
                     buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, "tpr", "wow"), args[1]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, "tpr", "wow"), buildConfig.encoding[1]);
+                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, "tpr", "wow"), buildConfig.encoding[1]).Result;
 
                     var basedir = args[3];
 
@@ -377,7 +392,7 @@ namespace BuildBackup
                     buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, "tpr", "wow"), args[1]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, "tpr", "wow"), buildConfig.encoding[1]);
+                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, "tpr", "wow"), buildConfig.encoding[1]).Result;
 
                     cdnConfig = GetCDNconfig(Path.Combine(cdn.cacheDir, "tpr", "wow"), args[2]);
 
@@ -662,7 +677,7 @@ namespace BuildBackup
 
                     buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[2]);
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true);
+                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true).Result;
 
                     var encryptedKeys = new Dictionary<string, string>();
                     var encryptedSizes = new Dictionary<string, ulong>();
@@ -733,7 +748,7 @@ namespace BuildBackup
 
                     buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[2]);
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true);
+                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true).Result;
 
                     foreach (var entry in encoding.aEntries)
                     {
@@ -742,7 +757,6 @@ namespace BuildBackup
 
                     Environment.Exit(0);
                 }
-
                 if (args[0] == "dumprawfile")
                 {
                     if (args.Length < 2) throw new Exception("Not enough arguments. Need mode, path, (numbytes)");
@@ -798,8 +812,27 @@ namespace BuildBackup
 
             backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr" };
 
+            // TODO: Process CDNConfigs only once per run, many are shared.
+            var finishedCDNConfigs = new List<string>();
+
+            var downloadThrottler = new SemaphoreSlim(initialCount: 5);
+
             foreach (string program in checkPrograms)
             {
+                var archiveSizes = new Dictionary<string, uint>();
+
+                if (File.Exists("archiveSizes.txt"))
+                {
+                    foreach (var line in File.ReadAllLines("archiveSizes.txt"))
+                    {
+                        var split = line.Split(' ');
+                        if (uint.TryParse(split[1], out uint archiveSize))
+                        {
+                            archiveSizes.Add(split[0], archiveSize);
+                        }
+                    }
+                }
+
                 Console.WriteLine("Using program " + program);
 
                 try
@@ -891,28 +924,19 @@ namespace BuildBackup
 
                 if (!string.IsNullOrEmpty(versions.entries[0].keyRing)) cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
 
+                if (!backupPrograms.Contains(program))
+                {
+                    Console.WriteLine("No need to backup, moving on..");
+                    continue;
+                }
+
                 if (!string.IsNullOrEmpty(decryptionKeyName) && cdnConfig.archives == null) // Let us ignore this whole encryption thing if archives are set, surely this will never break anything and it'll back it up perfectly fine.
                 {
                     if (!File.Exists(decryptionKeyName + ".ak"))
                     {
                         Console.WriteLine("Decryption key is set and not available on disk, skipping.");
-                        cdn.isEncrypted = false;
                         continue;
                     }
-                    else
-                    {
-                        cdn.isEncrypted = true;
-                    }
-                }
-                else
-                {
-                    cdn.isEncrypted = false;
-                }
-
-                if (!backupPrograms.Contains(program))
-                {
-                    Console.WriteLine("No need to backup, moving on..");
-                    continue;
                 }
 
                 Console.Write("Downloading patch files..");
@@ -920,22 +944,70 @@ namespace BuildBackup
                 if (!string.IsNullOrEmpty(buildConfig.patchConfig)) cdn.Get(cdns.entries[0].path + "/config/" + buildConfig.patchConfig[0] + buildConfig.patchConfig[1] + "/" + buildConfig.patchConfig[2] + buildConfig.patchConfig[3] + "/" + buildConfig.patchConfig);
                 Console.Write("..done\n");
 
-                Console.Write("Loading " + cdnConfig.archives.Count() + " indexes..");
-                GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
-                Console.Write("..done\n");
-
-                if (fullDownload)
+                if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig))
                 {
-                    Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
-                    foreach (var archive in cdnConfig.archives)
-                    {
-                        cdn.Get(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive, false);
-                    }
+                    Console.WriteLine("CDN config " + versions.entries[0].cdnConfig + " has not been loaded yet, loading..");
+                    Console.Write("Loading " + cdnConfig.archives.Count() + " indexes..");
+                    GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
                     Console.Write("..done\n");
-                }
-                else
-                {
-                    Console.WriteLine("Not a full run, skipping archive downloads..");
+
+                    if (fullDownload)
+                    {
+                        Console.Write("Fetching and saving archive sizes..");
+
+                        for (short i = 0; i < cdnConfig.archives.Length; i++)
+                        {
+                            var archive = cdnConfig.archives[i];
+                            if (!archiveSizes.ContainsKey(archive))
+                            {
+                                var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
+                                archiveSizes.Add(archive, remoteFileSize);
+                            }
+                        }
+
+                        var archiveSizesLines = new List<string>();
+                        foreach (var archiveSize in archiveSizes)
+                        {
+                            archiveSizesLines.Add(archiveSize.Key + " " + archiveSize.Value);
+                        }
+
+                        await File.WriteAllLinesAsync("archiveSizes.txt", archiveSizesLines);
+
+                        Console.WriteLine("..done");
+
+                        Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
+
+                        var archiveTasks = new List<Task>();
+                        for (short i = 0; i < cdnConfig.archives.Length; i++)
+                        {
+                            var archive = cdnConfig.archives[i];
+                            await downloadThrottler.WaitAsync();
+                            archiveTasks.Add(
+                                Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        uint archiveSize = 0;
+                                        if (archiveSizes.ContainsKey(archive))
+                                        {
+                                            archiveSize = archiveSizes[archive];
+                                        }
+
+                                        await cdn.Get(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive, false, false, archiveSize, true);
+                                    }
+                                    finally
+                                    {
+                                        downloadThrottler.Release();
+                                    }
+                                }));
+                        }
+                        await Task.WhenAll(archiveTasks);
+                        Console.Write("..done\n");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Not a full run, skipping archive downloads..");
+                    }
                 }
 
                 Console.Write("Loading encoding..");
@@ -944,16 +1016,16 @@ namespace BuildBackup
                 {
                     if (buildConfig.encodingSize == null || buildConfig.encodingSize.Count() < 2)
                     {
-                        encoding = GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], 0);
+                        encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], 0);
                     }
                     else
                     {
-                        encoding = GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], int.Parse(buildConfig.encodingSize[1]));
+                        encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], int.Parse(buildConfig.encodingSize[1]));
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Fatal error occured during encoding parsing: " + e.Message);
+                    Console.WriteLine("Fatal error occurred during encoding parsing: " + e.Message);
                     continue;
                 }
 
@@ -1007,21 +1079,6 @@ namespace BuildBackup
                     }
                 }
 
-                if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
-                {
-                    Console.Write("Parsing file index..");
-                    fileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.fileIndex);
-                    Console.Write("..done\n");
-
-                }
-
-                if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex))
-                {
-                    Console.Write("Parsing patch file index..");
-                    patchFileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.patchFileIndex, "patch");
-                    Console.Write("..done\n");
-                }
-
                 if (!fullDownload)
                 {
                     Console.WriteLine("Not a full run, skipping rest of download..");
@@ -1033,52 +1090,141 @@ namespace BuildBackup
                     hashes.Remove(entry.Key.ToUpper());
                 }
 
-                if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
+                if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig))
                 {
-                    Console.Write("Downloading " + fileIndexList.Count + " unarchived files from file index..");
-
-                    Parallel.ForEach(fileIndexList.Keys, new ParallelOptions { MaxDegreeOfParallelism = 20 }, (entry) =>
+                    if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
                     {
-                        cdn.Get(cdns.entries[0].path + "/data/" + entry[0] + entry[1] + "/" + entry[2] + entry[3] + "/" + entry, false);
-                    });
+                        Console.Write("Parsing file index..");
+                        fileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.fileIndex);
+                        Console.Write("..done\n");
 
-                    Console.Write("..done\n");
+                    }
+
+                    if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
+                    {
+                        Console.Write("Downloading " + fileIndexList.Count + " unarchived files from file index..");
+
+                        var fileIndexTasks = new List<Task>();
+                        foreach (var entry in fileIndexList.Keys)
+                        {
+                            await downloadThrottler.WaitAsync();
+                            fileIndexTasks.Add(
+                                Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await cdn.Get(
+                                            cdns.entries[0].path + "/data/" + entry[0] + entry[1] + "/" + entry[2] +
+                                            entry[3] + "/" + entry, false, false, fileIndexList[entry].size);
+                                    }
+                                    finally
+                                    {
+                                        downloadThrottler.Release();
+                                    }
+                                }));
+                        }
+
+                        await Task.WhenAll(fileIndexTasks);
+
+                        Console.Write("..done\n");
+                    }
+
+                    if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex))
+                    {
+                        Console.Write("Parsing patch file index..");
+                        patchFileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.patchFileIndex, "patch");
+                        Console.Write("..done\n");
+                    }
+
+                    if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex))
+                    {
+                        Console.Write("Downloading " + patchFileIndexList.Count + " unarchived patch files from patch file index..");
+
+                        var patchFileTasks = new List<Task>();
+                        foreach (var entry in patchFileIndexList.Keys)
+                        {
+                            await downloadThrottler.WaitAsync();
+                            patchFileTasks.Add(
+                                Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await cdn.Get(
+                                            cdns.entries[0].path + "/patch/" + entry[0] + entry[1] + "/" + entry[2] +
+                                            entry[3] + "/" + entry, false);
+                                    }
+                                    finally
+                                    {
+                                        downloadThrottler.Release();
+                                    }
+                                }));
+                        }
+
+                        await Task.WhenAll(patchFileTasks);
+
+                        Console.Write("..done\n");
+                    }
+
+                    if (cdnConfig.patchArchives != null)
+                    {
+                        Console.Write("Downloading " + cdnConfig.patchArchives.Count() + " patch archives..");
+
+                        var patchArchiveTasks = new List<Task>();
+                        foreach (var archive in cdnConfig.patchArchives)
+                        {
+                            await downloadThrottler.WaitAsync();
+                            patchArchiveTasks.Add(
+                                Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await cdn.Get(
+                                            cdns.entries[0].path + "/patch/" + archive[0] + archive[1] + "/" +
+                                            archive[2] + archive[3] + "/" + archive, false, false, 0, true);
+                                    }
+                                    finally
+                                    {
+                                        downloadThrottler.Release();
+                                    }
+                                }));
+                        }
+
+                        await Task.WhenAll(patchArchiveTasks);
+                        Console.Write("..done\n");
+
+                        Console.Write("Downloading " + cdnConfig.patchArchives.Count() + " patch archive indexes..");
+                        GetPatchIndexes(cdns.entries[0].path + "/", cdnConfig.patchArchives);
+                        Console.Write("..done\n");
+                    }
+
+                    finishedCDNConfigs.Add(versions.entries[0].cdnConfig);
                 }
 
-                if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex))
-                {
-                    Console.Write("Downloading " + patchFileIndexList.Count + " unarchived patch files from patch file index..");
-
-                    Parallel.ForEach(patchFileIndexList.Keys, new ParallelOptions { MaxDegreeOfParallelism = 20 }, (entry) =>
-                    {
-                        cdn.Get(cdns.entries[0].path + "/patch/" + entry[0] + entry[1] + "/" + entry[2] + entry[3] + "/" + entry, false);
-                    });
-
-                    Console.Write("..done\n");
-                }
-
+                // Unarchived files -- files in encoding but not in indexes. Can vary per build!
                 Console.Write("Downloading " + hashes.Count() + " unarchived files..");
 
+                var unarchivedFileTasks = new List<Task>();
                 foreach (var entry in hashes)
                 {
-                    cdn.Get(cdns.entries[0].path + "/data/" + entry.Key[0] + entry.Key[1] + "/" + entry.Key[2] + entry.Key[3] + "/" + entry.Key, false);
+                    await downloadThrottler.WaitAsync();
+                    unarchivedFileTasks.Add(
+                        Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await cdn.Get(cdns.entries[0].path + "/data/" + entry.Key[0] + entry.Key[1] + "/" + entry.Key[2] + entry.Key[3] + "/" + entry.Key, false);
+                            }
+                            finally
+                            {
+                                downloadThrottler.Release();
+                            }
+                        }));
                 }
-
+                await Task.WhenAll(unarchivedFileTasks);
                 Console.Write("..done\n");
 
                 if (cdnConfig.patchArchives != null)
                 {
-                    Console.Write("Downloading " + cdnConfig.patchArchives.Count() + " patch archives..");
-                    for (var i = 0; i < cdnConfig.patchArchives.Count(); i++)
-                    {
-                        cdn.Get(cdns.entries[0].path + "/patch/" + cdnConfig.patchArchives[i][0] + cdnConfig.patchArchives[i][1] + "/" + cdnConfig.patchArchives[i][2] + cdnConfig.patchArchives[i][3] + "/" + cdnConfig.patchArchives[i], false);
-                    }
-                    Console.Write("..done\n");
-
-                    Console.Write("Downloading " + cdnConfig.patchArchives.Count() + " patch archive indexes..");
-                    GetPatchIndexes(cdns.entries[0].path + "/", cdnConfig.patchArchives);
-                    Console.Write("..done\n");
-
                     if (patch.blocks != null)
                     {
                         var unarchivedPatchKeyList = new List<string>();
@@ -1101,10 +1247,24 @@ namespace BuildBackup
                         {
                             Console.Write("Downloading " + unarchivedPatchKeyList.Count + " unarchived patch files..");
 
+                            var unarchivedPatchFileTasks = new List<Task>();
                             foreach (var entry in unarchivedPatchKeyList)
                             {
-                                cdn.Get(cdns.entries[0].path + "/patch/" + entry[0] + entry[1] + "/" + entry[2] + entry[3] + "/" + entry, false);
+                                await downloadThrottler.WaitAsync();
+                                unarchivedPatchFileTasks.Add(
+                                    Task.Run(async () =>
+                                    {
+                                        try
+                                        {
+                                            await cdn.Get(cdns.entries[0].path + "/patch/" + entry[0] + entry[1] + "/" + entry[2] + entry[3] + "/" + entry, false);
+                                        }
+                                        finally
+                                        {
+                                            downloadThrottler.Release();
+                                        }
+                                    }));
                             }
+                            await Task.WhenAll(unarchivedPatchFileTasks);
 
                             Console.Write("..done\n");
                         }
@@ -1176,7 +1336,7 @@ namespace BuildBackup
 
             try
             {
-                content = Encoding.UTF8.GetString(cdn.Get(url + "/config/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash));
+                content = Encoding.UTF8.GetString(cdn.Get(url + "/config/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result);
             }
             catch (Exception e)
             {
@@ -1532,7 +1692,7 @@ namespace BuildBackup
 
             try
             {
-                content = Encoding.UTF8.GetString(cdn.Get(url + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash));
+                content = Encoding.UTF8.GetString(cdn.Get(url + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result);
             }
             catch (Exception e)
             {
@@ -1562,7 +1722,7 @@ namespace BuildBackup
 
             try
             {
-                content = Encoding.UTF8.GetString(cdn.Get(url + "/config/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash));
+                content = Encoding.UTF8.GetString(cdn.Get(url + "/config/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result);
             }
             catch (Exception e)
             {
@@ -1677,7 +1837,7 @@ namespace BuildBackup
 
         private static Dictionary<string, IndexEntry> ParseIndex(string url, string hash, string folder = "data")
         {
-            byte[] indexContent = cdn.Get(url + folder + "/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash + ".index");
+            byte[] indexContent = cdn.Get(url + folder + "/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash + ".index").Result;
 
             var returnDict = new Dictionary<string, IndexEntry>();
 
@@ -1763,7 +1923,7 @@ namespace BuildBackup
 
         private static List<string> ParsePatchFileIndex(string url, string hash)
         {
-            byte[] indexContent = cdn.Get(url + "/patch/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash + ".index");
+            byte[] indexContent = cdn.Get(url + "/patch/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash + ".index").Result;
 
             var list = new List<string>();
 
@@ -1792,7 +1952,7 @@ namespace BuildBackup
         {
             Parallel.ForEach(archives, (archive, state, i) =>
             {
-                byte[] indexContent = cdn.Get(url + "/data/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index");
+                byte[] indexContent = cdn.Get(url + "/data/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
 
                 using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
                 {
@@ -1841,7 +2001,7 @@ namespace BuildBackup
         {
             Parallel.ForEach(archives, (archive, state, i) =>
             {
-                byte[] indexContent = cdn.Get(url + "/patch/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index");
+                byte[] indexContent = cdn.Get(url + "/patch/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
 
                 using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
                 {
@@ -1895,7 +2055,7 @@ namespace BuildBackup
                 entriesFDID = new MultiDictionary<uint, RootEntry>()
             };
 
-            byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash);
+            byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result;
             if (!parseIt) return root;
 
             var hasher = new Jenkins96();
@@ -1999,7 +2159,7 @@ namespace BuildBackup
         {
             var download = new DownloadFile();
 
-            byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash);
+            byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result;
 
             if (!parseIt) return download;
 
@@ -2025,7 +2185,7 @@ namespace BuildBackup
         {
             var install = new InstallFile();
 
-            byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash);
+            byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result;
 
             if (!parseIt) return install;
 
@@ -2079,17 +2239,17 @@ namespace BuildBackup
             return install;
         }
 
-        private static EncodingFile GetEncoding(string url, string hash, int encodingSize = 0, bool parseTableB = false, bool checkStuff = false)
+        private static async Task<EncodingFile> GetEncoding(string url, string hash, int encodingSize = 0, bool parseTableB = false, bool checkStuff = false)
         {
             var encoding = new EncodingFile();
 
             byte[] content;
 
-            content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash);
+            content = await cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash);
 
             if (encodingSize != 0 && encodingSize != content.Length)
             {
-                content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash, true);
+                content = await cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash, true);
 
                 if (encodingSize != content.Length && encodingSize != 0)
                 {
@@ -2241,7 +2401,7 @@ namespace BuildBackup
         {
             var patchFile = new PatchFile();
 
-            byte[] content = cdn.Get(url + "/patch/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash);
+            byte[] content = cdn.Get(url + "/patch/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result;
 
             if (!parseIt) return patchFile;
 
