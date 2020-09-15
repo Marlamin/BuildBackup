@@ -807,13 +807,14 @@ namespace BuildBackup
             // Load programs
             if (checkPrograms == null)
             {
-                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr" };
+                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest" };
             }
 
-            backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr" };
+            backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest" };
 
             // TODO: Process CDNConfigs only once per run, many are shared.
             var finishedCDNConfigs = new List<string>();
+            var finishedEncodings = new List<string>();
 
             var downloadThrottler = new SemaphoreSlim(initialCount: 5);
 
@@ -1007,7 +1008,14 @@ namespace BuildBackup
                     else
                     {
                         Console.WriteLine("Not a full run, skipping archive downloads..");
+                        if(!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig)) { finishedCDNConfigs.Add(versions.entries[0].cdnConfig); }
                     }
+                }
+
+                if (finishedEncodings.Contains(buildConfig.encoding[1]))
+                {
+                    Console.WriteLine("Encoding file " + buildConfig.encoding[1] + " already loaded, skipping rest of product loading..");
+                    continue;
                 }
 
                 Console.Write("Loading encoding..");
@@ -1028,6 +1036,8 @@ namespace BuildBackup
                     Console.WriteLine("Fatal error occurred during encoding parsing: " + e.Message);
                     continue;
                 }
+
+                finishedEncodings.Add(buildConfig.encoding[1]);
 
                 Dictionary<string, string> hashes = new Dictionary<string, string>();
 
@@ -1115,7 +1125,7 @@ namespace BuildBackup
                                     {
                                         await cdn.Get(
                                             cdns.entries[0].path + "/data/" + entry[0] + entry[1] + "/" + entry[2] +
-                                            entry[3] + "/" + entry, false, false, fileIndexList[entry].size);
+                                            entry[3] + "/" + entry, false, false, fileIndexList[entry].size, true);
                                     }
                                     finally
                                     {
