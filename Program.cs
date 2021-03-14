@@ -50,17 +50,17 @@ namespace BuildBackup
             cdn.client = new HttpClient();
             cdn.client.Timeout = new TimeSpan(0, 5, 0);
             cdn.cdnList = new List<string> {
-                "level3.blizzard.com",      // Level3
-                "eu.cdn.blizzard.com",      // Official EU CDN
                 "blzddist1-a.akamaihd.net", // Akamai first
+                //"level3.blizzard.com",      // Level3
+                //"us.cdn.blizzard.com",      // Official US CDN
+                //"eu.cdn.blizzard.com",      // Official EU CDN
                 "cdn.blizzard.com",         // Official regionless CDN
-                "us.cdn.blizzard.com",      // Official US CDN
-                "client01.pdl.wow.battlenet.com.cn", // China 1
-                "client02.pdl.wow.battlenet.com.cn", // China 2
-                "client03.pdl.wow.battlenet.com.cn", // China 3
-                "client04.pdl.wow.battlenet.com.cn", // China 4
-                "client04.pdl.wow.battlenet.com.cn", // China 5
-                "blizzard.nefficient.co.kr", // Korea 
+                //"client01.pdl.wow.battlenet.com.cn", // China 1
+                //"client02.pdl.wow.battlenet.com.cn", // China 2
+                //"client03.pdl.wow.battlenet.com.cn", // China 3
+                //"client04.pdl.wow.battlenet.com.cn", // China 4
+                //"client04.pdl.wow.battlenet.com.cn", // China 5
+                //"blizzard.nefficient.co.kr", // Korea 
             };
 
             // Check if cache/backup directory exists
@@ -807,10 +807,10 @@ namespace BuildBackup
             // Load programs
             if (checkPrograms == null)
             {
-                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest" };
+                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "rtro", "rtrot", "rtrob" };
             }
 
-            backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest" };
+            backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "rtro", "rtrot", "rtrob" };
 
             // TODO: Process CDNConfigs only once per run, many are shared.
             var finishedCDNConfigs = new List<string>();
@@ -954,27 +954,27 @@ namespace BuildBackup
 
                     if (fullDownload)
                     {
-                        Console.Write("Fetching and saving archive sizes..");
+                        //Console.Write("Fetching and saving archive sizes..");
 
                         for (short i = 0; i < cdnConfig.archives.Length; i++)
                         {
                             var archive = cdnConfig.archives[i];
                             if (!archiveSizes.ContainsKey(archive))
                             {
-                                var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
-                                archiveSizes.Add(archive, remoteFileSize);
+                                //var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
+                                //archiveSizes.Add(archive, remoteFileSize);
                             }
                         }
 
-                        var archiveSizesLines = new List<string>();
+                        //var archiveSizesLines = new List<string>();
                         foreach (var archiveSize in archiveSizes)
-                        {
-                            archiveSizesLines.Add(archiveSize.Key + " " + archiveSize.Value);
-                        }
+                        //{
+                        //    archiveSizesLines.Add(archiveSize.Key + " " + archiveSize.Value);
+                        //}
 
-                        await File.WriteAllLinesAsync("archiveSizes.txt", archiveSizesLines);
+                        //await File.WriteAllLinesAsync("archiveSizes.txt", archiveSizesLines);
 
-                        Console.WriteLine("..done");
+                        //Console.WriteLine("..done");
 
                         Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
 
@@ -2333,6 +2333,7 @@ namespace BuildBackup
                         // @TODO add support for multiple encoding keys
                         for (int key = 0; key < entry.keyCount - 1; key++)
                         {
+                            Console.WriteLine(entry.hash + " has multiple encoding keys " + entry.keyCount + ", previous key was " + entry.key);
                             bin.ReadBytes(16);
                         }
 
