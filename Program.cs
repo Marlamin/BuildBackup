@@ -389,14 +389,14 @@ namespace BuildBackup
                 {
                     if (args.Length != 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list");
 
-                    buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, "tpr", "wow"), args[1]);
+                    buildConfig = GetBuildConfig(Path.Combine("tpr", "wow"), args[1]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, "tpr", "wow"), buildConfig.encoding[1]).Result;
+                    encoding = GetEncoding(Path.Combine("tpr", "wow"), buildConfig.encoding[1]).Result;
 
-                    cdnConfig = GetCDNconfig(Path.Combine(cdn.cacheDir, "tpr", "wow"), args[2]);
+                    cdnConfig = GetCDNconfig(Path.Combine("tpr", "wow"), args[2]);
 
-                    GetIndexes(Path.Combine(cdn.cacheDir, "tpr", "wow"), cdnConfig.archives);
+                    GetIndexes(Path.Combine("tpr", "wow"), cdnConfig.archives);
 
                     var basedir = args[3];
 
@@ -442,7 +442,7 @@ namespace BuildBackup
 
                     Console.WriteLine("Looking up in root..");
 
-                    root = GetRoot(Path.Combine(cdn.cacheDir, "tpr", "wow"), rootHash, true);
+                    root = GetRoot(Path.Combine("tpr", "wow"), rootHash, true);
 
                     var encodingList = new Dictionary<string, List<string>>();
 
