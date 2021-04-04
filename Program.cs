@@ -74,13 +74,13 @@ namespace BuildBackup
 
                     cdns = GetCDNs(args[1]);
 
-                    buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[2]);
+                    buildConfig = GetBuildConfig(cdns.entries[0].path, args[2]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    cdnConfig = GetCDNconfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[3]);
+                    cdnConfig = GetCDNconfig(cdns.entries[0].path, args[3]);
                     if (cdnConfig.archives == null) { Console.WriteLine("Invalid cdnConfig"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1]).Result;
+                    encoding = GetEncoding(cdns.entries[0].path, buildConfig.encoding[1]).Result;
 
                     string rootKey = "";
                     string downloadKey = "";
@@ -108,7 +108,7 @@ namespace BuildBackup
                         if (!hashes.ContainsKey(entry.key)) { hashes.Add(entry.key, entry.hash); }
                     }
 
-                    GetIndexes(Path.Combine(cdn.cacheDir, cdns.entries[0].path), cdnConfig.archives);
+                    GetIndexes(cdns.entries[0].path, cdnConfig.archives);
 
                     foreach (var entry in indexDictionary)
                     {
@@ -290,10 +290,10 @@ namespace BuildBackup
 
                     args[4] = args[4].ToLower();
 
-                    buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[2]);
+                    buildConfig = GetBuildConfig(cdns.entries[0].path, args[2]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1]).Result;
+                    encoding = GetEncoding(cdns.entries[0].path, buildConfig.encoding[1]).Result;
 
                     string target = "";
 
@@ -311,9 +311,9 @@ namespace BuildBackup
                         throw new Exception("File not found in encoding!");
                     }
 
-                    cdnConfig = GetCDNconfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[3]);
+                    cdnConfig = GetCDNconfig(cdns.entries[0].path, args[3]);
 
-                    GetIndexes(Path.Combine(cdn.cacheDir, cdns.entries[0].path), cdnConfig.archives);
+                    GetIndexes(cdns.entries[0].path, cdnConfig.archives);
 
                     if (args[0] == "extractrawfilebycontenthash")
                     {
@@ -334,18 +334,18 @@ namespace BuildBackup
                 {
                     if (args.Length != 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list");
 
-                    buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, "tpr", "wow"), args[1]);
+                    buildConfig = GetBuildConfig(Path.Combine("tpr", "wow"), args[1]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, "tpr", "wow"), buildConfig.encoding[1]).Result;
+                    encoding = GetEncoding(Path.Combine("tpr", "wow"), buildConfig.encoding[1]).Result;
 
                     var basedir = args[3];
 
                     var lines = File.ReadLines(args[4]);
 
-                    cdnConfig = GetCDNconfig(Path.Combine(cdn.cacheDir, "tpr", "wow"), args[2]);
+                    cdnConfig = GetCDNconfig(Path.Combine("tpr", "wow"), args[2]);
 
-                    GetIndexes(Path.Combine(cdn.cacheDir, "tpr", "wow"), cdnConfig.archives);
+                    GetIndexes(Path.Combine("tpr", "wow"), cdnConfig.archives);
 
                     foreach (var line in lines)
                     {
@@ -675,9 +675,9 @@ namespace BuildBackup
 
                     cdns = GetCDNs(args[1]);
 
-                    buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[2]);
+                    buildConfig = GetBuildConfig(cdns.entries[0].path, args[2]);
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true).Result;
+                    encoding = GetEncoding(cdns.entries[0].path, buildConfig.encoding[1], 0, true).Result;
 
                     var encryptedKeys = new Dictionary<string, string>();
                     var encryptedSizes = new Dictionary<string, ulong>();
@@ -705,7 +705,7 @@ namespace BuildBackup
                         if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key.ToLower(); }
                     }
 
-                    root = GetRoot(Path.Combine(cdn.cacheDir, cdns.entries[0].path), rootKey, true);
+                    root = GetRoot(cdns.entries[0].path, rootKey, true);
 
                     foreach (var entry in root.entriesFDID)
                     {
@@ -746,9 +746,9 @@ namespace BuildBackup
 
                     cdns = GetCDNs(args[1]);
 
-                    buildConfig = GetBuildConfig(Path.Combine(cdn.cacheDir, cdns.entries[0].path), args[2]);
+                    buildConfig = GetBuildConfig(cdns.entries[0].path, args[2]);
 
-                    encoding = GetEncoding(Path.Combine(cdn.cacheDir, cdns.entries[0].path), buildConfig.encoding[1], 0, true).Result;
+                    encoding = GetEncoding(cdns.entries[0].path, buildConfig.encoding[1], 0, true).Result;
 
                     foreach (var entry in encoding.aEntries)
                     {
@@ -2333,7 +2333,7 @@ namespace BuildBackup
                         // @TODO add support for multiple encoding keys
                         for (int key = 0; key < entry.keyCount - 1; key++)
                         {
-                            Console.WriteLine(entry.hash + " has multiple encoding keys " + entry.keyCount + ", previous key was " + entry.key);
+                            //Console.WriteLine(entry.hash + " has multiple encoding keys " + entry.keyCount + ", previous key was " + entry.key);
                             bin.ReadBytes(16);
                         }
 
