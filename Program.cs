@@ -807,10 +807,10 @@ namespace BuildBackup
             // Load programs
             if (checkPrograms == null)
             {
-                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "rtro", "rtrot", "rtrob" };
+                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "wow_classic_era", "wow_classic_era_ptr", "wow_classic_era_beta" };
             }
 
-            backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "rtro", "rtrot", "rtrob" };
+            backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "wow_classic_era", "wow_classic_era_ptr", "wow_classic_era_beta" };
 
             // TODO: Process CDNConfigs only once per run, many are shared.
             var finishedCDNConfigs = new List<string>();
@@ -954,27 +954,27 @@ namespace BuildBackup
 
                     if (fullDownload)
                     {
-                        //Console.Write("Fetching and saving archive sizes..");
+                        Console.Write("Fetching and saving archive sizes..");
 
                         for (short i = 0; i < cdnConfig.archives.Length; i++)
                         {
                             var archive = cdnConfig.archives[i];
                             if (!archiveSizes.ContainsKey(archive))
                             {
-                                //var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
-                                //archiveSizes.Add(archive, remoteFileSize);
+                                var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
+                                archiveSizes.Add(archive, remoteFileSize);
                             }
                         }
 
-                        //var archiveSizesLines = new List<string>();
+                        var archiveSizesLines = new List<string>();
                         foreach (var archiveSize in archiveSizes)
-                        //{
-                        //    archiveSizesLines.Add(archiveSize.Key + " " + archiveSize.Value);
-                        //}
+                        {
+                            archiveSizesLines.Add(archiveSize.Key + " " + archiveSize.Value);
+                        }
 
-                        //await File.WriteAllLinesAsync("archiveSizes.txt", archiveSizesLines);
+                        await File.WriteAllLinesAsync("archiveSizes.txt", archiveSizesLines);
 
-                        //Console.WriteLine("..done");
+                        Console.WriteLine("..done");
 
                         Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
 
