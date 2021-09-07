@@ -101,10 +101,10 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key; Console.WriteLine("root = " + entry.key.ToLower()); }
-                        if (string.IsNullOrEmpty(downloadKey) && entry.hash == buildConfig.download[0].ToUpper()) { downloadKey = entry.key; Console.WriteLine("download = " + entry.key.ToLower()); }
-                        if (string.IsNullOrEmpty(installKey) && entry.hash == buildConfig.install[0].ToUpper()) { installKey = entry.key; Console.WriteLine("install = " + entry.key.ToLower()); }
-                        if (!hashes.ContainsKey(entry.key)) { hashes.Add(entry.key, entry.hash); }
+                        if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0]; Console.WriteLine("root = " + entry.eKeys[0].ToLower()); }
+                        if (string.IsNullOrEmpty(downloadKey) && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0]; Console.WriteLine("download = " + entry.eKeys[0].ToLower()); }
+                        if (string.IsNullOrEmpty(installKey) && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0]; Console.WriteLine("install = " + entry.eKeys[0].ToLower()); }
+                        if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
                     }
 
                     GetIndexes(cdns.entries[0].path, cdnConfig.archives);
@@ -275,8 +275,8 @@ namespace BuildBackup
                     encoding = GetEncoding(cdns.entries[0].path + "/", args[2], 0, true).Result;
                     foreach (var entry in encoding.aEntries)
                     {
-                        var table2Entry = encoding.bEntries[entry.key];
-                        Console.WriteLine(entry.hash.ToLower() + " " + entry.key.ToLower() + " " + entry.keyCount + " " + entry.size + " " + encoding.stringBlockEntries[table2Entry.stringIndex]);
+                        var table2Entry = encoding.bEntries[entry.eKeys[0]];
+                        Console.WriteLine(entry.cKey.ToLower() + " " + entry.eKeys[0].ToLower() + " " + entry.keyCount + " " + entry.size + " " + encoding.stringBlockEntries[table2Entry.stringIndex]);
                     }
                     Console.WriteLine("ENCODINGESPEC " + encoding.encodingESpec);
                     Environment.Exit(0);
@@ -298,9 +298,9 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.hash.ToLower() == args[4])
+                        if (entry.cKey.ToLower() == args[4])
                         {
-                            target = entry.key.ToLower();
+                            target = entry.eKeys[0].ToLower();
                             break;
                         }
                     }
@@ -326,6 +326,22 @@ namespace BuildBackup
                     {
                         File.WriteAllBytes(args[5], RetrieveFileBytes(target, false, cdns.entries[0].path));
                     }
+
+                    Environment.Exit(0);
+                }
+                if (args[0] == "extractfilebyencodingkey")
+                {
+                    if (args.Length != 5) throw new Exception("Not enough arguments. Need mode, product, cdnconfig, contenthash, outname");
+
+                    cdns = GetCDNs(args[1]);
+                    cdnConfig = GetCDNconfig(cdns.entries[0].path, args[2]);
+
+                    var target = args[3];
+
+
+                    GetIndexes(cdns.entries[0].path, cdnConfig.archives);
+
+                    File.WriteAllBytes(args[4], RetrieveFileBytes(target, false, cdns.entries[0].path));
 
                     Environment.Exit(0);
                 }
@@ -363,7 +379,7 @@ namespace BuildBackup
 
                         foreach (var entry in encoding.aEntries)
                         {
-                            if (entry.hash.ToLower() == contenthash.ToLower()) { target = entry.key.ToLower(); Console.WriteLine("Found target: " + target); break; }
+                            if (entry.cKey.ToLower() == contenthash.ToLower()) { target = entry.eKeys[0].ToLower(); Console.WriteLine("Found target: " + target); break; }
                         }
 
                         if (string.IsNullOrEmpty(target))
@@ -405,7 +421,7 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.hash.ToLower() == buildConfig.root.ToLower()) { rootHash = entry.key.ToLower(); break; }
+                        if (entry.cKey.ToLower() == buildConfig.root.ToLower()) { rootHash = entry.eKeys[0].ToLower(); break; }
                     }
 
                     var hasher = new Jenkins96();
@@ -500,11 +516,11 @@ namespace BuildBackup
                     {
                         string target = "";
 
-                        if (encodingList.ContainsKey(encodingEntry.hash.ToLower()))
+                        if (encodingList.ContainsKey(encodingEntry.cKey.ToLower()))
                         {
-                            target = encodingEntry.key.ToLower();
+                            target = encodingEntry.eKeys[0].ToLower();
                             //Console.WriteLine(target);
-                            foreach (var subName in encodingList[encodingEntry.hash.ToLower()])
+                            foreach (var subName in encodingList[encodingEntry.cKey.ToLower()])
                             {
                                 if (fileList.ContainsKey(target))
                                 {
@@ -515,7 +531,7 @@ namespace BuildBackup
                                     fileList.Add(target, new List<string>() { subName });
                                 }
                             }
-                            encodingList.Remove(encodingEntry.hash.ToLower());
+                            encodingList.Remove(encodingEntry.cKey.ToLower());
                         }
                     }
 
@@ -695,13 +711,13 @@ namespace BuildBackup
                     var encryptedContentSizes = new Dictionary<string, ulong>();
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (encryptedKeys.ContainsKey(entry.key))
+                        if (encryptedKeys.ContainsKey(entry.eKeys[0]))
                         {
-                            encryptedContentHashes.Add(entry.hash, encryptedKeys[entry.key]);
-                            encryptedContentSizes.Add(entry.hash, entry.size);
+                            encryptedContentHashes.Add(entry.cKey, encryptedKeys[entry.eKeys[0]]);
+                            encryptedContentSizes.Add(entry.cKey, entry.size);
                         }
 
-                        if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key.ToLower(); }
+                        if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
                     }
 
                     root = GetRoot(cdns.entries[0].path, rootKey, true);
@@ -751,7 +767,7 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        Console.WriteLine(entry.hash.ToLower() + " " + entry.size);
+                        Console.WriteLine(entry.cKey.ToLower() + " " + entry.size);
                     }
 
                     Environment.Exit(0);
@@ -1049,10 +1065,10 @@ namespace BuildBackup
 
                 foreach (var entry in encoding.aEntries)
                 {
-                    if (entry.hash == buildConfig.root.ToUpper()) { rootKey = entry.key.ToLower(); }
-                    if (downloadKey == "" && entry.hash == buildConfig.download[0].ToUpper()) { downloadKey = entry.key.ToLower(); }
-                    if (installKey == "" && entry.hash == buildConfig.install[0].ToUpper()) { installKey = entry.key.ToLower(); }
-                    if (!hashes.ContainsKey(entry.key)) { hashes.Add(entry.key, entry.hash); }
+                    if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
+                    if (downloadKey == "" && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0].ToLower(); }
+                    if (installKey == "" && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0].ToLower(); }
+                    if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
                 }
 
                 Console.Write("..done\n");
@@ -2288,15 +2304,13 @@ namespace BuildBackup
                         {
                             keyCount = keysCount,
                             size = bin.ReadUInt32(true),
-                            hash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", ""),
-                            key = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "")
+                            cKey = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", ""),
+                            eKeys = new List<string>()
                         };
 
-                        // @TODO add support for multiple encoding keys
-                        for (int key = 0; key < entry.keyCount - 1; key++)
+                        for (int key = 0; key < entry.keyCount; key++)
                         {
-                            //Console.WriteLine(entry.hash + " has multiple encoding keys " + entry.keyCount + ", previous key was " + entry.key);
-                            bin.ReadBytes(16);
+                            entry.eKeys.Add(BitConverter.ToString(bin.ReadBytes(16)).Replace("-", ""));
                         }
 
                         entries.Add(entry);
@@ -2344,6 +2358,7 @@ namespace BuildBackup
                     }
 
                     var key = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+
                     EncodingFileDescEntry entry = new EncodingFileDescEntry()
                     {
                         stringIndex = bin.ReadUInt32(true),

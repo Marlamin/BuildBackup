@@ -133,8 +133,8 @@ namespace BuildBackup
     {
         public ushort keyCount;
         public uint size;
-        public string hash;
-        public string key;
+        public string cKey;
+        public List<string> eKeys;
     }
 
     public struct EncodingFileDescEntry
