@@ -807,10 +807,10 @@ namespace BuildBackup
             // Load programs
             if (checkPrograms == null)
             {
-                checkPrograms = new string[] { "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "wow_classic_era", "wow_classic_era_ptr", "wow_classic_era_beta" };
+                checkPrograms = SettingsManager.checkProducts;
             }
 
-            backupPrograms = new string[] { "agent", "wow", "wowt", "wow_beta", "wowdev", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "wow_classic_era", "wow_classic_era_ptr", "wow_classic_era_beta" };
+            backupPrograms = SettingsManager.backupProducts;
 
             // TODO: Process CDNConfigs only once per run, many are shared.
             var finishedCDNConfigs = new List<string>();
@@ -1409,58 +1409,62 @@ namespace BuildBackup
             string content;
             var versions = new VersionsFile();
 
-            using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "versions")).Result)
+            if (!SettingsManager.useRibbit)
             {
-                if (response.IsSuccessStatusCode)
+                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "versions")).Result)
                 {
-                    using (HttpContent res = response.Content)
+                    if (response.IsSuccessStatusCode)
                     {
-                        content = res.ReadAsStringAsync().Result;
+                        using (HttpContent res = response.Content)
+                        {
+                            content = res.ReadAsStringAsync().Result;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error during retrieving HTTP versions: Received bad HTTP code " + response.StatusCode);
+                        return versions;
                     }
                 }
-                else
-                {
-                    Console.WriteLine("Error during retrieving HTTP versions: Received bad HTTP code " + response.StatusCode);
-                    return versions;
-                }
             }
-
-            /*
-            try
+            else
             {
-                var client = new Client(Region.EU);
-                var request = client.Request("v1/products/" + program + "/versions");
-                content = request.ToString();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error during retrieving Ribbit versions: " + e.Message + ", trying HTTP..");
                 try
                 {
-                    using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "versions")).Result)
+                    var client = new Ribbit.Protocol.Client(Ribbit.Constants.Region.EU);
+                    var request = client.Request("v1/products/" + program + "/versions");
+                    content = request.ToString();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error during retrieving Ribbit versions: " + e.Message + ", trying HTTP..");
+                    try
                     {
-                        if (response.IsSuccessStatusCode)
+                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "versions")).Result)
                         {
-                            using (HttpContent res = response.Content)
+                            if (response.IsSuccessStatusCode)
                             {
-                                content = res.ReadAsStringAsync().Result;
+                                using (HttpContent res = response.Content)
+                                {
+                                    content = res.ReadAsStringAsync().Result;
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("Error during retrieving HTTP versions: Received bad HTTP code " + response.StatusCode);
+                                return versions;
                             }
                         }
-                        else
-                        {
-                            Console.WriteLine("Error during retrieving HTTP versions: Received bad HTTP code " + response.StatusCode);
-                            return versions;
-                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Error retrieving versions: " + ex.Message);
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Error retrieving versions: " + ex.Message);
+                        return versions;
+                    }
                     return versions;
                 }
-                return versions;
             }
-            */
+            
             content = content.Replace("\0", "");
             var lines = content.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -1532,56 +1536,62 @@ namespace BuildBackup
 
             var cdns = new CdnsFile();
 
-            using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "cdns")).Result)
+            if (!SettingsManager.useRibbit)
             {
-                if (response.IsSuccessStatusCode)
+                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "cdns")).Result)
                 {
-                    using (HttpContent res = response.Content)
+                    if (response.IsSuccessStatusCode)
                     {
-                        content = res.ReadAsStringAsync().Result;
+                        using (HttpContent res = response.Content)
+                        {
+                            content = res.ReadAsStringAsync().Result;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error during retrieving HTTP cdns: Received bad HTTP code " + response.StatusCode);
+                        return cdns;
                     }
                 }
-                else
-                {
-                    Console.WriteLine("Error during retrieving HTTP cdns: Received bad HTTP code " + response.StatusCode);
-                    return cdns;
-                }
             }
-            /*
-            try
+            else
             {
-                var client = new Client(Region.US);
-                var request = client.Request("v1/products/" + program + "/cdns");
-                content = request.ToString();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error during retrieving Ribbit cdns: " + e.Message + ", trying HTTP..");
+
                 try
                 {
-                    using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "cdns")).Result)
+                    var client = new Ribbit.Protocol.Client(Ribbit.Constants.Region.US);
+                    var request = client.Request("v1/products/" + program + "/cdns");
+                    content = request.ToString();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error during retrieving Ribbit cdns: " + e.Message + ", trying HTTP..");
+                    try
                     {
-                        if (response.IsSuccessStatusCode)
+                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "cdns")).Result)
                         {
-                            using (HttpContent res = response.Content)
+                            if (response.IsSuccessStatusCode)
                             {
-                                content = res.ReadAsStringAsync().Result;
+                                using (HttpContent res = response.Content)
+                                {
+                                    content = res.ReadAsStringAsync().Result;
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("Error during retrieving HTTP cdns: Received bad HTTP code " + response.StatusCode);
+                                return cdns;
                             }
                         }
-                        else
-                        {
-                            Console.WriteLine("Error during retrieving HTTP cdns: Received bad HTTP code " + response.StatusCode);
-                            return cdns;
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Error retrieving CDNs file: " + ex.Message);
+                        return cdns;
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Error retrieving CDNs file: " + ex.Message);
-                    return cdns;
-                }
             }
-            */
+
             var lines = content.Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
 
             var lineList = new List<string>();
