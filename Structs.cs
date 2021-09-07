@@ -61,6 +61,7 @@ namespace BuildBackup
         public string buildFixedHash;
         public string buildReplayHash;
         public string buildManifestVersion;
+        public string buildSignatureFile;
         public string patch;
         public string patchSize;
         public string patchConfig;

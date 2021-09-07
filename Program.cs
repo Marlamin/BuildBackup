@@ -19,7 +19,6 @@ namespace BuildBackup
 
         private static VersionsFile versions;
         private static CdnsFile cdns;
-        private static GameBlobFile gameblob;
         private static GameBlobFile productConfig;
         private static BuildConfigFile buildConfig;
         private static BuildConfigFile[] cdnBuildConfigs;
@@ -865,14 +864,7 @@ namespace BuildBackup
                     productConfig = GetProductConfig(cdns.entries[0].configPath + "/", versions.entries[0].productConfig);
                 }
 
-                gameblob = GetGameBlob(program);
-
                 var decryptionKeyName = "";
-
-                if (gameblob.decryptionKeyName != null && gameblob.decryptionKeyName != string.Empty)
-                {
-                    decryptionKeyName = gameblob.decryptionKeyName;
-                }
 
                 if (productConfig.decryptionKeyName != null && productConfig.decryptionKeyName != string.Empty)
                 {
@@ -1661,49 +1653,6 @@ namespace BuildBackup
             return cdns;
         }
 
-        private static GameBlobFile GetGameBlob(string program)
-        {
-            string content;
-
-            var gblob = new GameBlobFile();
-
-            try
-            {
-                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "blob/game")).Result)
-                {
-                    if (response.IsSuccessStatusCode)
-                    {
-                        using (HttpContent res = response.Content)
-                        {
-                            content = res.ReadAsStringAsync().Result;
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception("Bad HTTP code while retrieving");
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error retrieving game blob file: " + e.Message);
-                return gblob;
-            }
-
-            if (string.IsNullOrEmpty(content))
-            {
-                Console.WriteLine("Empty gameblob :(");
-                return gblob;
-            }
-
-            dynamic json = Newtonsoft.Json.JsonConvert.DeserializeObject(content);
-            if (json.all.config.decryption_key_name != null)
-            {
-                gblob.decryptionKeyName = json.all.config.decryption_key_name.Value;
-            }
-            return gblob;
-        }
-
         private static GameBlobFile GetProductConfig(string url, string hash)
         {
             string content;
@@ -1845,6 +1794,9 @@ namespace BuildBackup
                         break;
                     case "partial-priority-size":
                         buildConfig.partialPrioritySize = cols[1];
+                        break;
+                    case "build-signature-file":
+                        buildConfig.buildSignatureFile = cols[1];
                         break;
                     default:
                         Console.WriteLine("!!!!!!!! Unknown buildconfig variable '" + cols[0] + "'");
