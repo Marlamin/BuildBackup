@@ -275,8 +275,11 @@ namespace BuildBackup
                     encoding = GetEncoding(cdns.entries[0].path + "/", args[2], 0, true).Result;
                     foreach (var entry in encoding.aEntries)
                     {
-                        var table2Entry = encoding.bEntries[entry.eKeys[0]];
-                        Console.WriteLine(entry.cKey.ToLower() + " " + entry.eKeys[0].ToLower() + " " + entry.keyCount + " " + entry.size + " " + encoding.stringBlockEntries[table2Entry.stringIndex]);
+                        for(var i = 0; i < entry.keyCount; i++)
+                        {
+                            var table2Entry = encoding.bEntries[entry.eKeys[i]];
+                            Console.WriteLine(entry.cKey.ToLower() + " " + entry.eKeys[i].ToLower() + " " + entry.keyCount + " " + entry.size + " " + encoding.stringBlockEntries[table2Entry.stringIndex]);
+                        }
                     }
                     Console.WriteLine("ENCODINGESPEC " + encoding.encodingESpec);
                     Environment.Exit(0);
