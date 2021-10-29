@@ -1846,7 +1846,8 @@ namespace BuildBackup
 
             var returnDict = new Dictionary<string, IndexEntry>();
 
-            using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
+            using (MemoryStream ms = new MemoryStream(indexContent))
+            using (BinaryReader bin = new BinaryReader(ms))
             {
                 bin.BaseStream.Position = bin.BaseStream.Length - 28;
 
@@ -1876,22 +1877,16 @@ namespace BuildBackup
                 bin.BaseStream.Position = 0;
 
                 var indexBlockSize = 1024 * footer.blockSizeKB;
-                int indexEntries = indexContent.Length / indexBlockSize;
                 var recordSize = footer.keySizeInBytes + footer.sizeBytes + footer.offsetBytes;
                 var recordsPerBlock = indexBlockSize / recordSize;
-                var blockPadding = indexBlockSize - (recordsPerBlock * recordSize);
                 var recordsRead = 0;
 
                 while (recordsRead != footer.numElements)
                 {
-                    for (var bi = 0; bi < recordsPerBlock; bi++)
-                    {
-                        if (recordsRead == footer.numElements)
-                        {
-                            blockPadding = indexBlockSize - (bi * recordSize);
-                            break;
-                        }
+                    var blockRecordsRead = 0;
 
+                    for (var blockIndex = 0; blockIndex < recordsPerBlock && recordsRead < footer.numElements; blockIndex++, recordsRead++)
+                    {
                         var headerHash = BitConverter.ToString(bin.ReadBytes(footer.keySizeInBytes)).Replace("-", "");
                         var entry = new IndexEntry();
 
@@ -1925,16 +1920,10 @@ namespace BuildBackup
 
                         returnDict.Add(headerHash, entry);
 
-                        recordsRead++;
-
-                        if (recordsRead == footer.numElements)
-                        {
-                            blockPadding = indexBlockSize - (bi * recordSize);
-                            break;
-                        }
+                        blockRecordsRead++;
                     }
 
-                    bin.ReadBytes(blockPadding);
+                    bin.ReadBytes(indexBlockSize - (blockRecordsRead * recordSize));
                 }
             }
 
