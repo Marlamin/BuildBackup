@@ -1,0 +1,8 @@
+﻿{
+  "config": {
+    "cacheDir": "X:/",
+    "checkProducts": [ "agent", "wow", "wowt", "wowdev", "wow_beta", "wowe1", "wowe2", "wowe3", "wowv", "wowz", "catalogs", "wowdemo", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "wow_classic_era", "wow_classic_era_ptr", "wow_classic_era_beta" ],
+    "backupProducts": [ "agent", "wow", "wowt", "wow_beta", "wowe1", "wowe2", "wowe3", "wowz", "wow_classic", "wow_classic_beta", "wow_classic_ptr", "wowlivetest", "wow_classic_era", "wow_classic_era_ptr", "wow_classic_era_beta" ],
+    "useRibbit": false
+  }
+}
