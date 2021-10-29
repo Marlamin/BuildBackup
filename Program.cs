@@ -1876,16 +1876,22 @@ namespace BuildBackup
                 bin.BaseStream.Position = 0;
 
                 var indexBlockSize = 1024 * footer.blockSizeKB;
-
                 int indexEntries = indexContent.Length / indexBlockSize;
                 var recordSize = footer.keySizeInBytes + footer.sizeBytes + footer.offsetBytes;
                 var recordsPerBlock = indexBlockSize / recordSize;
                 var blockPadding = indexBlockSize - (recordsPerBlock * recordSize);
+                var recordsRead = 0;
 
-                for (var b = 0; b < indexEntries; b++)
+                while (recordsRead != footer.numElements)
                 {
                     for (var bi = 0; bi < recordsPerBlock; bi++)
                     {
+                        if (recordsRead == footer.numElements)
+                        {
+                            blockPadding = indexBlockSize - (bi * recordSize);
+                            break;
+                        }
+
                         var headerHash = BitConverter.ToString(bin.ReadBytes(footer.keySizeInBytes)).Replace("-", "");
                         var entry = new IndexEntry();
 
@@ -1908,17 +1914,23 @@ namespace BuildBackup
                             // Group index
                             throw new NotImplementedException("Group index reading is not implemented!");
                         }
-                        else
+                        else if (footer.offsetBytes == 0)
                         {
                             // File index
                         }
-
-                        if (entry.size != 0)
+                        else
                         {
-                            if (!returnDict.TryAdd(headerHash, entry))
-                            {
-                                Console.WriteLine("Duplicate index entry for " + headerHash + " " + "(index: " + hash + ", size: " + entry.size + ", offset: " + entry.offset);
-                            }
+                            throw new NotImplementedException("Offset size reading other than 4/6/0 is not implemented!");
+                        }
+
+                        returnDict.Add(headerHash, entry);
+
+                        recordsRead++;
+
+                        if (recordsRead == footer.numElements)
+                        {
+                            blockPadding = indexBlockSize - (bi * recordSize);
+                            break;
                         }
                     }
 
