@@ -275,7 +275,7 @@ namespace BuildBackup
                     encoding = GetEncoding(cdns.entries[0].path + "/", args[2], 0, true).Result;
                     foreach (var entry in encoding.aEntries)
                     {
-                        for(var i = 0; i < entry.keyCount; i++)
+                        for (var i = 0; i < entry.keyCount; i++)
                         {
                             var table2Entry = encoding.bEntries[entry.eKeys[i]];
                             Console.WriteLine(entry.cKey.ToLower() + " " + entry.eKeys[i].ToLower() + " " + entry.keyCount + " " + entry.size + " " + encoding.stringBlockEntries[table2Entry.stringIndex]);
@@ -829,7 +829,6 @@ namespace BuildBackup
 
             backupPrograms = SettingsManager.backupProducts;
 
-            // TODO: Process CDNConfigs only once per run, many are shared.
             var finishedCDNConfigs = new List<string>();
             var finishedEncodings = new List<string>();
 
@@ -933,7 +932,8 @@ namespace BuildBackup
                     continue;
                 }
 
-                if (!string.IsNullOrEmpty(versions.entries[0].keyRing)) cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
+                if (!string.IsNullOrEmpty(versions.entries[0].keyRing)) 
+                    await cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
 
                 if (!backupPrograms.Contains(program))
                 {
@@ -951,8 +951,11 @@ namespace BuildBackup
                 }
 
                 Console.Write("Downloading patch files..");
-                if (!string.IsNullOrEmpty(buildConfig.patch)) patch = GetPatch(cdns.entries[0].path + "/", buildConfig.patch, true);
-                if (!string.IsNullOrEmpty(buildConfig.patchConfig)) cdn.Get(cdns.entries[0].path + "/config/" + buildConfig.patchConfig[0] + buildConfig.patchConfig[1] + "/" + buildConfig.patchConfig[2] + buildConfig.patchConfig[3] + "/" + buildConfig.patchConfig);
+                if (!string.IsNullOrEmpty(buildConfig.patch)) 
+                    patch = GetPatch(cdns.entries[0].path + "/", buildConfig.patch, true);
+
+                if (!string.IsNullOrEmpty(buildConfig.patchConfig)) 
+                    await cdn.Get(cdns.entries[0].path + "/config/" + buildConfig.patchConfig[0] + buildConfig.patchConfig[1] + "/" + buildConfig.patchConfig[2] + buildConfig.patchConfig[3] + "/" + buildConfig.patchConfig);
                 Console.Write("..done\n");
 
                 if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig))
@@ -1018,7 +1021,7 @@ namespace BuildBackup
                     else
                     {
                         Console.WriteLine("Not a full run, skipping archive downloads..");
-                        if(!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig)) { finishedCDNConfigs.Add(versions.entries[0].cdnConfig); }
+                        if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig)) { finishedCDNConfigs.Add(versions.entries[0].cdnConfig); }
                     }
                 }
 
@@ -1319,7 +1322,7 @@ namespace BuildBackup
                         var file = cdn.Get(cdndir + "/" + "data" + "/" + target[0] + target[1] + "/" + target[2] + target[3] + "/" + target, true, false, 0, true).Result;
                         return BLTE.Parse(file);
                     }
-                    catch(Exception e)
+                    catch (Exception e)
                     {
                         Console.WriteLine("Warn: Unable to retrieve file as unarchived from CDN: " + e.Message);
                     }
@@ -1489,7 +1492,7 @@ namespace BuildBackup
                     return versions;
                 }
             }
-            
+
             content = content.Replace("\0", "");
             var lines = content.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -2072,8 +2075,6 @@ namespace BuildBackup
 
             byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result;
             if (!parseIt) return root;
-
-            var hasher = new Jenkins96();
 
             var namedCount = 0;
             var unnamedCount = 0;
