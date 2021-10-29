@@ -341,10 +341,9 @@ namespace BuildBackup
 
                     var target = args[3];
 
-
                     GetIndexes(cdns.entries[0].path, cdnConfig.archives);
 
-                    File.WriteAllBytes(args[4], RetrieveFileBytes(target, false, cdns.entries[0].path));
+                    File.WriteAllBytes(args[4], RetrieveFileBytes(target, false, cdns.entries[0].path, true));
 
                     Environment.Exit(0);
                 }
@@ -834,7 +833,7 @@ namespace BuildBackup
             var finishedCDNConfigs = new List<string>();
             var finishedEncodings = new List<string>();
 
-            var downloadThrottler = new SemaphoreSlim(initialCount: 5);
+            var downloadThrottler = new SemaphoreSlim(initialCount: 10);
 
             foreach (string program in checkPrograms)
             {
@@ -1296,7 +1295,7 @@ namespace BuildBackup
             }
         }
 
-        private static byte[] RetrieveFileBytes(string target, bool raw = false, string cdndir = "tpr/wow")
+        private static byte[] RetrieveFileBytes(string target, bool raw = false, string cdndir = "tpr/wow", bool tryUnarchived = false)
         {
             var unarchivedName = Path.Combine(cdn.cacheDir, cdndir, "data", target[0] + "" + target[1], target[2] + "" + target[3], target);
 
@@ -1309,6 +1308,21 @@ namespace BuildBackup
                 else
                 {
                     return File.ReadAllBytes(unarchivedName);
+                }
+            }
+            else
+            {
+                if (tryUnarchived)
+                {
+                    try
+                    {
+                        var file = cdn.Get(cdndir + "/" + "data" + "/" + target[0] + target[1] + "/" + target[2] + target[3] + "/" + target, true, false, 0, true).Result;
+                        return BLTE.Parse(file);
+                    }
+                    catch(Exception e)
+                    {
+                        Console.WriteLine("Warn: Unable to retrieve file as unarchived from CDN: " + e.Message);
+                    }
                 }
             }
 
@@ -1901,7 +1915,10 @@ namespace BuildBackup
 
                         if (entry.size != 0)
                         {
-                            returnDict.Add(headerHash, entry);
+                            if (!returnDict.TryAdd(headerHash, entry))
+                            {
+                                Console.WriteLine("Duplicate index entry for " + headerHash + " " + "(index: " + hash + ", size: " + entry.size + ", offset: " + entry.offset);
+                            }
                         }
                     }
 
@@ -1970,7 +1987,10 @@ namespace BuildBackup
                                     cacheLock.EnterWriteLock();
                                     try
                                     {
-                                        indexDictionary.Add(headerHash, entry);
+                                        if (!indexDictionary.TryAdd(headerHash, entry))
+                                        {
+                                            Console.WriteLine("Duplicate index entry for " + headerHash + " " + "(index: " + archives[i] + ", size: " + entry.size + ", offset: " + entry.offset);
+                                        }
                                     }
                                     finally
                                     {
@@ -2019,7 +2039,10 @@ namespace BuildBackup
                                     cacheLock.EnterWriteLock();
                                     try
                                     {
-                                        patchIndexDictionary.Add(headerHash, entry);
+                                        if (!patchIndexDictionary.TryAdd(headerHash, entry))
+                                        {
+                                            Console.WriteLine("Duplicate patch index entry for " + headerHash + " " + "(index: " + archives[i] + ", size: " + entry.size + ", offset: " + entry.offset);
+                                        }
                                     }
                                     finally
                                     {
