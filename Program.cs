@@ -751,6 +751,84 @@ namespace BuildBackup
 
                     Environment.Exit(0);
                 }
+                if (args[0] == "dumpbadlyencrypted")
+                {
+                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, buildconfig");
+
+                    if (args[1] != "wow")
+                    {
+                        Console.WriteLine("Only WoW is currently supported due to root/fileDataID usage");
+                        return;
+                    }
+
+                    cdns = GetCDNs(args[1]);
+
+                    buildConfig = GetBuildConfig(cdns.entries[0].path, args[2]);
+
+                    encoding = GetEncoding(cdns.entries[0].path, buildConfig.encoding[1], 0, true).Result;
+
+                    var encryptedKeys = new Dictionary<string, string>();
+                    var notEncryptedKeys = new List<string>();
+
+                    foreach (var entry in encoding.bEntries)
+                    {
+                        var stringBlockEntry = encoding.stringBlockEntries[entry.Value.stringIndex];
+                        if (stringBlockEntry.Contains("e:"))
+                        {
+                            encryptedKeys.Add(entry.Key, stringBlockEntry);
+                        }
+                        else
+                        {
+                            notEncryptedKeys.Add(entry.Key);
+                        }
+                    }
+
+                    string rootKey = "";
+                    var encryptedContentHashes = new List<string>();
+                    
+                    foreach (var entry in encoding.aEntries)
+                    {
+                        for(var i = 0; i < entry.eKeys.Count; i++)
+                        {
+                            if (encryptedKeys.ContainsKey(entry.eKeys[i]) && !encryptedContentHashes.Contains(entry.cKey))
+                            {
+                                encryptedContentHashes.Add(entry.cKey);
+                            }
+
+                            if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[i].ToLower(); }
+                        }
+
+                        for (var i = 0; i < entry.eKeys.Count; i++)
+                        {
+                            if (!encryptedKeys.ContainsKey(entry.eKeys[i]))
+                            {
+                                encryptedContentHashes.Remove(entry.cKey);
+                            }
+                        }
+                    }
+
+                    root = GetRoot(cdns.entries[0].path, rootKey, true);
+
+                    foreach (var entry in root.entriesFDID)
+                    {
+                        foreach (var subentry in entry.Value)
+                        {
+                            var contenthash = Convert.ToHexString(subentry.md5);
+
+                            if (encryptedContentHashes.Contains(contenthash))
+                            {
+                                break;
+                            }
+
+                            if (subentry.contentFlags.HasFlag(ContentFlags.Encrypted))
+                            {
+                                Console.WriteLine(subentry.fileDataID);
+                            }
+                        }
+                    }
+
+                    Environment.Exit(0);
+                }
                 if (args[0] == "dumpsizes")
                 {
                     if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, buildconfig");
