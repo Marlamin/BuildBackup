@@ -11,7 +11,6 @@ namespace BuildBackup
     {
         public static byte[] Parse(byte[] content)
         {
-            using (var result = new MemoryStream())
             using (var bin = new BinaryReader(new MemoryStream(content)))
             {
                 if (bin.ReadUInt32() != 0x45544c42) { throw new Exception("Not a BLTE file"); }
@@ -59,19 +58,24 @@ namespace BuildBackup
                     }
                 }
 
-                for (var index = 0; index < chunkInfos.Count(); index++)
-                {
-                    var chunk = chunkInfos[index];
+                var totalSize = chunkInfos.Sum(c => c.decompSize);
 
-                    if (chunk.compSize > (bin.BaseStream.Length - bin.BaseStream.Position))
+                using (var result = new MemoryStream(totalSize))
+                {
+                    for (var index = 0; index < chunkInfos.Length; index++)
                     {
-                        throw new Exception("Trying to read more than is available!");
+                        var chunk = chunkInfos[index];
+
+                        if (chunk.compSize > (bin.BaseStream.Length - bin.BaseStream.Position))
+                        {
+                            throw new Exception("Trying to read more than is available!");
+                        }
+
+                        HandleDataBlock(bin.ReadBytes(chunk.compSize), index, chunk, result);
                     }
 
-                    HandleDataBlock(bin.ReadBytes(chunk.compSize), index, chunk, result);
+                    return result.ToArray();
                 }
-
-                return result.ToArray();
             }
         }
 
