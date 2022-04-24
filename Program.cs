@@ -1004,6 +1004,10 @@ namespace BuildBackup
                 {
                     //Console.WriteLine("CDNConfig loaded, " + cdnConfig.archives.Count() + " archives");
                 }
+                else if(cdnConfig.fileIndex != null)
+                {
+
+                }
                 else
                 {
                     Console.WriteLine("Invalid cdnConfig for " + program + "!");
@@ -1039,122 +1043,129 @@ namespace BuildBackup
                 if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig))
                 {
                     Console.WriteLine("CDN config " + versions.entries[0].cdnConfig + " has not been loaded yet, loading..");
-                    Console.Write("Loading " + cdnConfig.archives.Count() + " indexes..");
-                    GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
-                    Console.Write("..done\n");
 
-                    if (fullDownload)
+                    if(cdnConfig.archives != null)
                     {
-                        Console.Write("Fetching and saving archive sizes..");
-
-                        for (short i = 0; i < cdnConfig.archives.Length; i++)
-                        {
-                            var archive = cdnConfig.archives[i];
-                            if (!archiveSizes.ContainsKey(archive))
-                            {
-                                var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
-                                archiveSizes.Add(archive, remoteFileSize);
-                            }
-                        }
-
-                        var archiveSizesLines = new List<string>();
-                        foreach (var archiveSize in archiveSizes)
-                        {
-                            archiveSizesLines.Add(archiveSize.Key + " " + archiveSize.Value);
-                        }
-
-                        await File.WriteAllLinesAsync("archiveSizes.txt", archiveSizesLines);
-
-                        Console.WriteLine("..done");
-
-                        Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
-
-                        var archiveTasks = new List<Task>();
-                        for (short i = 0; i < cdnConfig.archives.Length; i++)
-                        {
-                            var archive = cdnConfig.archives[i];
-                            await downloadThrottler.WaitAsync();
-                            archiveTasks.Add(
-                                Task.Run(async () =>
-                                {
-                                    try
-                                    {
-                                        uint archiveSize = 0;
-                                        if (archiveSizes.ContainsKey(archive))
-                                        {
-                                            archiveSize = archiveSizes[archive];
-                                        }
-
-                                        await cdn.Get(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive, false, false, archiveSize, true);
-                                    }
-                                    finally
-                                    {
-                                        downloadThrottler.Release();
-                                    }
-                                }));
-                        }
-                        await Task.WhenAll(archiveTasks);
+                        Console.Write("Loading " + cdnConfig.archives.Count() + " indexes..");
+                        GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
                         Console.Write("..done\n");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Not a full run, skipping archive downloads..");
-                        if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig)) { finishedCDNConfigs.Add(versions.entries[0].cdnConfig); }
+
+                        if (fullDownload)
+                        {
+                            Console.Write("Fetching and saving archive sizes..");
+
+                            for (short i = 0; i < cdnConfig.archives.Length; i++)
+                            {
+                                var archive = cdnConfig.archives[i];
+                                if (!archiveSizes.ContainsKey(archive))
+                                {
+                                    var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
+                                    archiveSizes.Add(archive, remoteFileSize);
+                                }
+                            }
+
+                            var archiveSizesLines = new List<string>();
+                            foreach (var archiveSize in archiveSizes)
+                            {
+                                archiveSizesLines.Add(archiveSize.Key + " " + archiveSize.Value);
+                            }
+
+                            await File.WriteAllLinesAsync("archiveSizes.txt", archiveSizesLines);
+
+                            Console.WriteLine("..done");
+
+                            Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
+
+                            var archiveTasks = new List<Task>();
+                            for (short i = 0; i < cdnConfig.archives.Length; i++)
+                            {
+                                var archive = cdnConfig.archives[i];
+                                await downloadThrottler.WaitAsync();
+                                archiveTasks.Add(
+                                    Task.Run(async () =>
+                                    {
+                                        try
+                                        {
+                                            uint archiveSize = 0;
+                                            if (archiveSizes.ContainsKey(archive))
+                                            {
+                                                archiveSize = archiveSizes[archive];
+                                            }
+
+                                            await cdn.Get(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive, false, false, archiveSize, true);
+                                        }
+                                        finally
+                                        {
+                                            downloadThrottler.Release();
+                                        }
+                                    }));
+                            }
+                            await Task.WhenAll(archiveTasks);
+                            Console.Write("..done\n");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Not a full run, skipping archive downloads..");
+                            if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig)) { finishedCDNConfigs.Add(versions.entries[0].cdnConfig); }
+                        }
                     }
                 }
-
-                if (finishedEncodings.Contains(buildConfig.encoding[1]))
-                {
-                    Console.WriteLine("Encoding file " + buildConfig.encoding[1] + " already loaded, skipping rest of product loading..");
-                    continue;
-                }
-
-                Console.Write("Loading encoding..");
-
-                try
-                {
-                    if (buildConfig.encodingSize == null || buildConfig.encodingSize.Count() < 2)
-                    {
-                        encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], 0);
-                    }
-                    else
-                    {
-                        encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], int.Parse(buildConfig.encodingSize[1]));
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Fatal error occurred during encoding parsing: " + e.Message);
-                    continue;
-                }
-
-                finishedEncodings.Add(buildConfig.encoding[1]);
-
-                Dictionary<string, string> hashes = new Dictionary<string, string>();
 
                 string rootKey = "";
                 string downloadKey = "";
                 string installKey = "";
+                Dictionary<string, string> hashes = new Dictionary<string, string>();
 
-                if (buildConfig.install.Length == 2)
+                if (buildConfig.encoding != null && buildConfig.encoding.Length == 2)
                 {
-                    installKey = buildConfig.install[1];
-                }
+                    if (finishedEncodings.Contains(buildConfig.encoding[1]))
+                    {
+                        Console.WriteLine("Encoding file " + buildConfig.encoding[1] + " already loaded, skipping rest of product loading..");
+                        continue;
+                    }
 
-                if (buildConfig.download.Length == 2)
-                {
-                    downloadKey = buildConfig.download[1];
-                }
+                    Console.Write("Loading encoding..");
 
-                foreach (var entry in encoding.aEntries)
-                {
-                    if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
-                    if (downloadKey == "" && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0].ToLower(); }
-                    if (installKey == "" && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0].ToLower(); }
-                    if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
-                }
+                    try
+                    {
+                        if (buildConfig.encodingSize == null || buildConfig.encodingSize.Count() < 2)
+                        {
+                            encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], 0);
+                        }
+                        else
+                        {
+                            encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], int.Parse(buildConfig.encodingSize[1]));
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Fatal error occurred during encoding parsing: " + e.Message);
+                        continue;
+                    }
 
-                Console.Write("..done\n");
+                    finishedEncodings.Add(buildConfig.encoding[1]);
+                
+                    if (buildConfig.install.Length == 2)
+                    {
+                        installKey = buildConfig.install[1];
+                    }
+
+                    if (buildConfig.download.Length == 2)
+                    {
+                        downloadKey = buildConfig.download[1];
+                    }
+
+                    foreach (var entry in encoding.aEntries)
+                    {
+                        if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
+                        if (downloadKey == "" && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0].ToLower(); }
+                        if (installKey == "" && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0].ToLower(); }
+                        if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
+                    }
+
+                    Console.Write("..done\n");
+                }
+              
 
                 if (program == "wow" || program == "wowt" || program == "wow_beta" || program == "wow_classic" || program == "wow_classic_ptr") // Only these are supported right now
                 {
