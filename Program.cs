@@ -764,18 +764,16 @@ namespace BuildBackup
                     cdns = GetCDNs(args[1]);
 
                     buildConfig = GetBuildConfig(cdns.entries[0].path, args[2]);
-
                     encoding = GetEncoding(cdns.entries[0].path, buildConfig.encoding[1], 0, true).Result;
 
-                    var encryptedKeys = new Dictionary<string, string>();
-                    var notEncryptedKeys = new List<string>();
-
+                    var encryptedKeys = new HashSet<string>();
+                    var notEncryptedKeys = new HashSet<string>();
                     foreach (var entry in encoding.bEntries)
                     {
                         var stringBlockEntry = encoding.stringBlockEntries[entry.Value.stringIndex];
                         if (stringBlockEntry.Contains("e:"))
                         {
-                            encryptedKeys.Add(entry.Key, stringBlockEntry);
+                            encryptedKeys.Add(entry.Key);
                         }
                         else
                         {
@@ -784,13 +782,13 @@ namespace BuildBackup
                     }
 
                     string rootKey = "";
-                    var encryptedContentHashes = new List<string>();
+                    var encryptedContentHashes = new HashSet<string>();
                     
                     foreach (var entry in encoding.aEntries)
                     {
                         for(var i = 0; i < entry.eKeys.Count; i++)
                         {
-                            if (encryptedKeys.ContainsKey(entry.eKeys[i]) && !encryptedContentHashes.Contains(entry.cKey))
+                            if (encryptedKeys.Contains(entry.eKeys[i]) && !encryptedContentHashes.Contains(entry.cKey))
                             {
                                 encryptedContentHashes.Add(entry.cKey);
                             }
@@ -800,7 +798,7 @@ namespace BuildBackup
 
                         for (var i = 0; i < entry.eKeys.Count; i++)
                         {
-                            if (!encryptedKeys.ContainsKey(entry.eKeys[i]))
+                            if (!encryptedKeys.Contains(entry.eKeys[i]))
                             {
                                 encryptedContentHashes.Remove(entry.cKey);
                             }
