@@ -709,17 +709,27 @@ namespace BuildBackup
                     }
 
                     string rootKey = "";
-                    var encryptedContentHashes = new Dictionary<string, string>();
+                    var encryptedContentHashes = new Dictionary<string, List<string>>();
                     var encryptedContentSizes = new Dictionary<string, ulong>();
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (encryptedKeys.ContainsKey(entry.eKeys[0]))
+                        for(var i = 0; i < entry.eKeys.Count; i++)
                         {
-                            encryptedContentHashes.Add(entry.cKey, encryptedKeys[entry.eKeys[0]]);
-                            encryptedContentSizes.Add(entry.cKey, entry.size);
-                        }
+                            if (encryptedKeys.ContainsKey(entry.eKeys[i]))
+                            {
+                                if (encryptedContentHashes.ContainsKey(entry.cKey))
+                                {
+                                    encryptedContentHashes[entry.cKey].Add(encryptedKeys[entry.eKeys[i]]);
+                                }
+                                else
+                                {
+                                    encryptedContentHashes.Add(entry.cKey, new List<string>() { encryptedKeys[entry.eKeys[i]]});
+                                    encryptedContentSizes.Add(entry.cKey, entry.size);
+                                }
+                            }
 
-                        if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
+                            if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[i].ToLower(); }
+                        }
                     }
 
                     root = GetRoot(cdns.entries[0].path, rootKey, true);
@@ -728,24 +738,28 @@ namespace BuildBackup
                     {
                         foreach (var subentry in entry.Value)
                         {
-                            if (encryptedContentHashes.ContainsKey(BitConverter.ToString(subentry.md5).Replace("-", "")))
+                            var md5string = Convert.ToHexString(subentry.md5);
+                            if (encryptedContentHashes.ContainsKey(md5string))
                             {
-                                var stringBlock = encryptedContentHashes[BitConverter.ToString(subentry.md5).Replace("-", "")];
-                                var rawStringBlock = stringBlock;
-                                var keyList = new List<string>();
-                                while (stringBlock.Contains("e:"))
+                                var stringBlocks = encryptedContentHashes[md5string];
+                                foreach(var rawStringBlock in stringBlocks)
                                 {
-                                    var keyName = stringBlock.Substring(stringBlock.IndexOf("e:{") + 3, 16);
-                                    if (!keyList.Contains(keyName))
+                                    var stringBlock = rawStringBlock;
+                                    var keyList = new List<string>();
+                                    while (stringBlock.Contains("e:"))
                                     {
-                                        keyList.Add(keyName);
+                                        var keyName = stringBlock.Substring(stringBlock.IndexOf("e:{") + 3, 16);
+                                        if (!keyList.Contains(keyName))
+                                        {
+                                            keyList.Add(keyName);
+                                        }
+                                        stringBlock = stringBlock.Remove(stringBlock.IndexOf("e:{"), 19);
                                     }
-                                    stringBlock = stringBlock.Remove(stringBlock.IndexOf("e:{"), 19);
-                                }
 
-                                Console.WriteLine(subentry.fileDataID + " " + string.Join(',', keyList) + " " + rawStringBlock + " " + encryptedContentSizes[BitConverter.ToString(subentry.md5).Replace("-", "")]);
-                                break;
+                                    Console.WriteLine(subentry.fileDataID + " " + string.Join(',', keyList) + " " + rawStringBlock + " " + encryptedContentSizes[md5string]);
+                                }
                             }
+                            break;
                         }
                     }
 
