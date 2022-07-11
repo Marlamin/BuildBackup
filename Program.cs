@@ -153,11 +153,11 @@ namespace BuildBackup
 
                             if (entry.Key > 0 && fileNames.ContainsKey(entry.Key))
                             {
-                                Console.WriteLine(fileNames[entry.Key] + ";" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower());
+                                Console.WriteLine(fileNames[entry.Key] + ";" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + Convert.ToHexString(subentry.md5).ToLower());
                             }
                             else
                             {
-                                Console.WriteLine("unknown;" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower());
+                                Console.WriteLine("unknown;" + entry.Key.ToString("x").PadLeft(16, '0') + ";" + subentry.fileDataID + ";" + Convert.ToHexString(subentry.md5).ToLower());
                             }
                         }
 
@@ -190,7 +190,7 @@ namespace BuildBackup
                             fileName = hashes.ContainsKey(entry.lookup) ? hashes[entry.lookup] : "";
                         }
 
-                        var md5 = BitConverter.ToString(entry.md5).Replace("-", string.Empty).ToLower();
+                        var md5 = Convert.ToHexString(entry.md5).ToLower();
                         var dataId = entry.fileDataID;
                         Console.WriteLine("{0};{1};{2};{3}", fileName, lookup, dataId, md5);
                     };
@@ -218,7 +218,7 @@ namespace BuildBackup
                     {
                         foreach (var subentry in entry.Value)
                         {
-                            Console.WriteLine(subentry.fileDataID + ";" + BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower() + ";" + subentry.localeFlags.ToString() + ";" + subentry.contentFlags.ToString());
+                            Console.WriteLine(subentry.fileDataID + ";" + Convert.ToHexString(subentry.md5).ToLower() + ";" + subentry.localeFlags.ToString() + ";" + subentry.contentFlags.ToString());
                         }
                     }
 
@@ -263,7 +263,7 @@ namespace BuildBackup
                     install = GetInstall(cdns.entries[0].path + "/", args[2], true);
                     foreach (var entry in install.entries)
                     {
-                        Console.WriteLine(entry.name + " (size: " + entry.size + ", md5: " + BitConverter.ToString(entry.contentHash).Replace("-", string.Empty).ToLower() + ", tags: " + string.Join(",", entry.tags) + ")");
+                        Console.WriteLine(entry.name + " (size: " + entry.size + ", md5: " + Convert.ToHexString(entry.contentHash).ToLower() + ", tags: " + string.Join(",", entry.tags) + ")");
                     }
                     Environment.Exit(0);
                 }
@@ -478,7 +478,7 @@ namespace BuildBackup
                             {
                                 if (nameList.ContainsKey(subentry.lookup))
                                 {
-                                    var cleanContentHash = BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower();
+                                    var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
 
                                     if (encodingList.ContainsKey(cleanContentHash))
                                     {
@@ -494,7 +494,7 @@ namespace BuildBackup
                             {
                                 if (fdidList.ContainsKey(subentry.fileDataID))
                                 {
-                                    var cleanContentHash = BitConverter.ToString(subentry.md5).Replace("-", string.Empty).ToLower();
+                                    var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
 
                                     if (encodingList.ContainsKey(cleanContentHash))
                                     {
@@ -1358,7 +1358,7 @@ namespace BuildBackup
                             {
                                 foreach (var patch in fileBlock.patches)
                                 {
-                                    var pKey = BitConverter.ToString(patch.patchEncodingKey).Replace("-", "");
+                                    var pKey = Convert.ToHexString(patch.patchEncodingKey);
                                     if (!patchIndexDictionary.ContainsKey(pKey))
                                     {
                                         unarchivedPatchKeyList.Add(pKey);
@@ -1991,7 +1991,7 @@ namespace BuildBackup
 
                     for (var blockIndex = 0; blockIndex < recordsPerBlock && recordsRead < footer.numElements; blockIndex++, recordsRead++)
                     {
-                        var headerHash = BitConverter.ToString(bin.ReadBytes(footer.keySizeInBytes)).Replace("-", "");
+                        var headerHash = Convert.ToHexString(bin.ReadBytes(footer.keySizeInBytes));
                         var entry = new IndexEntry();
 
                         if (footer.sizeBytes == 4)
@@ -2048,7 +2048,7 @@ namespace BuildBackup
                 {
                     for (var bi = 0; bi < 170; bi++)
                     {
-                        var headerHash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+                        var headerHash = Convert.ToHexString(bin.ReadBytes(16));
 
                         var size = bin.ReadUInt32(true);
 
@@ -2075,7 +2075,7 @@ namespace BuildBackup
                     {
                         for (var bi = 0; bi < 170; bi++)
                         {
-                            var headerHash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+                            var headerHash = Convert.ToHexString(bin.ReadBytes(16));
 
                             var entry = new IndexEntry()
                             {
@@ -2127,7 +2127,7 @@ namespace BuildBackup
                     {
                         for (var bi = 0; bi < 170; bi++)
                         {
-                            var headerHash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+                            var headerHash = Convert.ToHexString(bin.ReadBytes(16));
 
                             var entry = new IndexEntry()
                             {
@@ -2290,7 +2290,7 @@ namespace BuildBackup
                 download.entries = new DownloadEntry[download.numEntries];
                 for (int i = 0; i < download.numEntries; i++)
                 {
-                    download.entries[i].hash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+                    download.entries[i].hash = Convert.ToHexString(bin.ReadBytes(16));
                     bin.ReadBytes(10);
                 }
             }
@@ -2411,8 +2411,8 @@ namespace BuildBackup
 
                     for (int i = 0; i < encoding.numEntriesA; i++)
                     {
-                        encoding.aHeaders[i].firstHash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
-                        encoding.aHeaders[i].checksum = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+                        encoding.aHeaders[i].firstHash = Convert.ToHexString(bin.ReadBytes(16));
+                        encoding.aHeaders[i].checksum = Convert.ToHexString(bin.ReadBytes(16));
                     }
                 }
                 else
@@ -2433,13 +2433,13 @@ namespace BuildBackup
                         {
                             keyCount = keysCount,
                             size = bin.ReadUInt32(true),
-                            cKey = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", ""),
+                            cKey = Convert.ToHexString(bin.ReadBytes(16)),
                             eKeys = new List<string>()
                         };
 
                         for (int key = 0; key < entry.keyCount; key++)
                         {
-                            entry.eKeys.Add(BitConverter.ToString(bin.ReadBytes(16)).Replace("-", ""));
+                            entry.eKeys.Add(Convert.ToHexString(bin.ReadBytes(16)));
                         }
 
                         entries.Add(entry);
@@ -2463,8 +2463,8 @@ namespace BuildBackup
 
                     for (int i = 0; i < encoding.numEntriesB; i++)
                     {
-                        encoding.bHeaders[i].firstHash = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
-                        encoding.bHeaders[i].checksum = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+                        encoding.bHeaders[i].firstHash = Convert.ToHexString(bin.ReadBytes(16));
+                        encoding.bHeaders[i].checksum = Convert.ToHexString(bin.ReadBytes(16));
                     }
                 }
                 else
@@ -2486,7 +2486,7 @@ namespace BuildBackup
                         continue;
                     }
 
-                    var key = BitConverter.ToString(bin.ReadBytes(16)).Replace("-", "");
+                    var key = Convert.ToHexString(bin.ReadBytes(16));
 
                     EncodingFileDescEntry entry = new EncodingFileDescEntry()
                     {
