@@ -98,17 +98,19 @@ namespace BuildBackup
 
                         using (var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead))
                         using (var responseStream = await response.Content.ReadAsStreamAsync())
-                        using (var file = File.Create(cacheDir + cleanName))
                         {
                             if (response.IsSuccessStatusCode)
                             {
-                                found = true;
-
-                                var buffer = new byte[4096];
-                                int read;
-                                while ((read = await responseStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
+                                using (var file = File.Create(cacheDir + cleanName))
                                 {
-                                    file.Write(buffer, 0, read);
+                                    found = true;
+
+                                    var buffer = new byte[4096];
+                                    int read;
+                                    while ((read = await responseStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
+                                    {
+                                        file.Write(buffer, 0, read);
+                                    }
                                 }
                             }
                             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
