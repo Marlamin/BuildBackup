@@ -11,7 +11,7 @@ namespace BuildBackup
         public HttpClient client;
         public string cacheDir;
         public List<string> cdnList;
-
+        
         public async Task<uint> GetRemoteFileSize(string path)
         {
             path = path.ToLower();
@@ -33,7 +33,7 @@ namespace BuildBackup
                             found = true;
 
                             if (response.Content.Headers.ContentLength != null)
-                                return (uint) response.Content.Headers.ContentLength;
+                                return (uint)response.Content.Headers.ContentLength;
                         }
                         else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                         {
@@ -70,7 +70,7 @@ namespace BuildBackup
                 {
                     if (verbose)
                         Console.WriteLine("File size of " + path + " " + fileInfo.Length + " does not match expected size " + expectedSize + " redownloading..");
-                    
+
                     redownload = true;
                 }
             }
@@ -79,14 +79,14 @@ namespace BuildBackup
             {
                 var found = false;
 
-                foreach(var cdn in cdnList)
+                foreach (var cdn in cdnList)
                 {
                     if (found) continue;
 
                     var uri = new Uri("http://" + cdn + "/" + path);
                     var cleanName = uri.AbsolutePath;
 
-                    if(verbose)
+                    if (verbose)
                         Console.WriteLine("Downloading " + path);
 
                     try
@@ -150,7 +150,14 @@ namespace BuildBackup
 
             if (returnstream)
             {
-                return await File.ReadAllBytesAsync(Path.Combine(cacheDir, path));
+                if (path.Contains("tpr/wowdev/"))
+                {
+                    return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), "wowdevalpha"));
+                }
+                else
+                {
+                    return await File.ReadAllBytesAsync(Path.Combine(cacheDir, path));
+                }
             }
             else
             {

@@ -196,11 +196,23 @@ namespace BuildBackup
 
         public static byte[] DecryptFile(string name, byte[] data, string decryptionKeyName)
         {
-            byte[] key = new byte[16];
+            byte[] key;
 
-            using (BinaryReader reader = new BinaryReader(new FileStream(decryptionKeyName + ".ak", FileMode.Open)))
+            if (!Program.cachedArmadilloKeys.TryGetValue(decryptionKeyName, out key))
             {
-                key = reader.ReadBytes(16);
+                if (!File.Exists(decryptionKeyName + ".ak"))
+                {
+                    key = new byte[16];
+                }
+                else
+                {
+                    using (BinaryReader reader = new BinaryReader(new FileStream(decryptionKeyName + ".ak", FileMode.Open)))
+                    {
+                        key = reader.ReadBytes(16);
+                    }
+
+                    Program.cachedArmadilloKeys.Add(decryptionKeyName, key);
+                }
             }
 
             byte[] IV = name.ToByteArray();

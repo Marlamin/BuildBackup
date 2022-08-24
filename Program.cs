@@ -41,6 +41,8 @@ namespace BuildBackup
         private static Dictionary<string, IndexEntry> patchFileIndexList = new Dictionary<string, IndexEntry>();
         private static ReaderWriterLockSlim cacheLock = new ReaderWriterLockSlim();
 
+        public static Dictionary<string, byte[]> cachedArmadilloKeys = new Dictionary<string, byte[]>();
+
         private static CDN cdn = new CDN();
 
         static async Task Main(string[] args)
