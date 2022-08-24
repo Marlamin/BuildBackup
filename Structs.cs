@@ -65,6 +65,8 @@ namespace BuildBackup
         public string patch;
         public string patchSize;
         public string patchConfig;
+        public string[] patchIndex;
+        public string[] patchIndexSize;
         public string partialPriority;
         public string partialPrioritySize;
     }

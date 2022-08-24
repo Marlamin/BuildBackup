@@ -1052,6 +1052,10 @@ namespace BuildBackup
 
                 if (!string.IsNullOrEmpty(buildConfig.patchConfig)) 
                     await cdn.Get(cdns.entries[0].path + "/config/" + buildConfig.patchConfig[0] + buildConfig.patchConfig[1] + "/" + buildConfig.patchConfig[2] + buildConfig.patchConfig[3] + "/" + buildConfig.patchConfig);
+
+                if (buildConfig.patchIndex != null && buildConfig.patchIndex.Length == 2 && !string.IsNullOrEmpty(buildConfig.patchIndex[1]))
+                    await cdn.Get(cdns.entries[0].path + "/data/" + buildConfig.patchIndex[1][0] + buildConfig.patchIndex[1][1] + "/" + buildConfig.patchIndex[1][2] + buildConfig.patchIndex[1][3] + "/" + buildConfig.patchIndex[1]);
+
                 Console.Write("..done\n");
 
                 if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig))
@@ -1936,6 +1940,12 @@ namespace BuildBackup
                         break;
                     case "build-signature-file":
                         buildConfig.buildSignatureFile = cols[1];
+                        break;
+                    case "patch-index":
+                        buildConfig.patchIndex = cols[1].Split(' ');
+                        break;
+                    case "patch-index-size":
+                        buildConfig.patchIndexSize = cols[1].Split(' ');
                         break;
                     default:
                         Console.WriteLine("!!!!!!!! Unknown buildconfig variable '" + cols[0] + "'");
