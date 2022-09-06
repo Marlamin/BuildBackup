@@ -269,6 +269,18 @@ namespace BuildBackup
                     }
                     Environment.Exit(0);
                 }
+                if (args[0] == "dumpdownload")
+                {
+                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, download");
+
+                    cdns = GetCDNs(args[1]);
+                    var download  = GetDownload(cdns.entries[0].path + "/", args[2], true);
+                    foreach (var entry in download.entries)
+                    {
+                        Console.WriteLine(entry.eKey + " (size: " + entry.size + ", priority: " + entry.priority + ", flags: " + entry.flags + ")");
+                    }
+                    Environment.Exit(0);
+                }
                 if (args[0] == "dumpencoding")
                 {
                     if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, encoding");
@@ -2295,15 +2307,33 @@ namespace BuildBackup
             using (BinaryReader bin = new BinaryReader(new MemoryStream(BLTE.Parse(content))))
             {
                 if (Encoding.UTF8.GetString(bin.ReadBytes(2)) != "DL") { throw new Exception("Error while parsing download file. Did BLTE header size change?"); }
-                download.unk = bin.ReadBytes(3); // Unk
+                download.version = bin.ReadByte();
+                download.hashSizeEKey = bin.ReadByte();
+                download.hasChecksumInEntry = bin.ReadBoolean();
                 download.numEntries = bin.ReadUInt32(true);
                 download.numTags = bin.ReadUInt16(true);
-
+                download.flagSize = bin.ReadByte();
+                
                 download.entries = new DownloadEntry[download.numEntries];
                 for (int i = 0; i < download.numEntries; i++)
                 {
-                    download.entries[i].hash = Convert.ToHexString(bin.ReadBytes(16));
-                    bin.ReadBytes(10);
+                    download.entries[i].eKey = Convert.ToHexString(bin.ReadBytes(download.hashSizeEKey));
+                    download.entries[i].size = bin.ReadUInt40(true);
+                    download.entries[i].priority = bin.ReadByte();
+
+                    if (download.hasChecksumInEntry)
+                    {
+                        download.entries[i].checksum = bin.ReadUInt32(true);
+                    }
+
+                    if (download.flagSize == 1)
+                    {
+                        download.entries[i].flags = bin.ReadByte();
+                    }
+                    else
+                    {
+                        throw new Exception("Unexpected download flag size");
+                    }
                 }
             }
 

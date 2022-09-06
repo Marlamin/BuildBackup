@@ -172,16 +172,22 @@ namespace BuildBackup
 
     public struct DownloadFile
     {
-        public byte[] unk;
+        public byte version;
+        public byte hashSizeEKey;
+        public bool hasChecksumInEntry;
         public uint numEntries;
         public uint numTags;
+        public byte flagSize;
         public DownloadEntry[] entries;
     }
 
     public struct DownloadEntry
     {
-        public string hash;
-        public byte[] unk;
+        public string eKey;
+        public ulong size;
+        public byte priority;
+        public uint checksum;
+        public byte flags;
     }
 
     public struct BLTEChunkInfo
