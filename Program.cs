@@ -274,7 +274,7 @@ namespace BuildBackup
                     if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, download");
 
                     cdns = GetCDNs(args[1]);
-                    var download  = GetDownload(cdns.entries[0].path + "/", args[2], true);
+                    var download = GetDownload(cdns.entries[0].path + "/", args[2], true);
                     foreach (var entry in download.entries)
                     {
                         Console.WriteLine(entry.eKey + " (size: " + entry.size + ", priority: " + entry.priority + ", flags: " + entry.flags + ")");
@@ -416,6 +416,275 @@ namespace BuildBackup
 
                     Environment.Exit(0);
                 }
+                if (args[0] == "cachebuild")
+                {
+                    if (args.Length != 4) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir");
+
+                    buildConfig = GetBuildConfig(Path.Combine("tpr", "wow"), args[1]);
+                    if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
+
+                    encoding = GetEncoding(Path.Combine("tpr", "wow"), buildConfig.encoding[1]).Result;
+
+                    cdnConfig = GetCDNconfig(Path.Combine("tpr", "wow"), args[2]);
+
+                    GetIndexes(Path.Combine("tpr", "wow"), cdnConfig.archives);
+
+                    var basedir = args[3];
+                    var rootHash = "";
+
+                    foreach (var entry in encoding.aEntries)
+                    {
+                        if (entry.cKey.ToLower() == buildConfig.root.ToLower()) { rootHash = entry.eKeys[0].ToLower(); break; }
+                    }
+
+                    var fdidList = new List<uint>();
+
+                    root = GetRoot(Path.Combine("tpr", "wow"), rootHash, true);
+
+                    if (File.Exists(Path.Combine(basedir, "lastextractedroot.txt")))
+                    {
+                        var oldRootHash = File.ReadAllLines(Path.Combine(basedir, "lastextractedroot.txt"))[0];
+                        var oldRoot = GetRoot(Path.Combine("tpr", "wow"), oldRootHash, true);
+
+                        var rootFromEntries = oldRoot.entriesFDID;
+                        var fromEntries = rootFromEntries.Keys.ToHashSet();
+
+                        var rootToEntries = root.entriesFDID;
+                        var toEntries = rootToEntries.Keys.ToHashSet();
+
+                        var commonEntries = fromEntries.Intersect(toEntries);
+                        var removedEntries = fromEntries.Except(commonEntries);
+                        var addedEntries = toEntries.Except(commonEntries);
+
+                        static RootEntry prioritize(List<RootEntry> entries)
+                        {
+                            var prioritized = entries.FirstOrDefault(subentry =>
+                                   subentry.contentFlags.HasFlag(ContentFlags.LowViolence) == false && (subentry.localeFlags.HasFlag(LocaleFlags.All_WoW) || subentry.localeFlags.HasFlag(LocaleFlags.enUS))
+                            );
+
+                            if (prioritized.fileDataID != 0)
+                            {
+                                return prioritized;
+                            }
+                            else
+                            {
+                                return entries.First();
+                            }
+                        }
+
+                        var addedFiles = addedEntries.Select(entry => rootToEntries[entry]).Select(prioritize);
+                        var removedFiles = removedEntries.Select(entry => rootFromEntries[entry]).Select(prioritize);
+
+                        var modifiedFiles = new List<RootEntry>();
+
+                        foreach (var entry in commonEntries)
+                        {
+                            var originalFile = prioritize(rootFromEntries[entry]);
+                            var patchedFile = prioritize(rootToEntries[entry]);
+
+                            if (!originalFile.md5.SequenceEqual(patchedFile.md5))
+                            {
+                                modifiedFiles.Add(patchedFile);
+                            }
+                            else if (originalFile.contentFlags.HasFlag(ContentFlags.Encrypted))
+                            {
+                                modifiedFiles.Add(patchedFile);
+                            }
+                        }
+
+                        Console.WriteLine($"Added: {addedEntries.Count()}, removed: {removedFiles.Count()}, modified: {modifiedFiles.Count()}, common: {commonEntries.Count()}");
+
+                        fdidList.AddRange(addedFiles.Select(x => x.fileDataID));
+                        fdidList.AddRange(modifiedFiles.Select(x => x.fileDataID));
+                    }
+                    else
+                    {
+                        fdidList.AddRange(root.entriesFDID.Keys);
+                    }
+                    
+                    Console.WriteLine("Looking up in root..");
+
+                    var encodingList = new Dictionary<string, List<string>>();
+
+                    foreach (var entry in root.entriesFDID)
+                    {
+                        foreach (var subentry in entry.Value)
+                        {
+                            if (subentry.contentFlags.HasFlag(ContentFlags.LowViolence))
+                                continue;
+
+                            if (!subentry.localeFlags.HasFlag(LocaleFlags.All_WoW) && !subentry.localeFlags.HasFlag(LocaleFlags.enUS))
+                                continue;
+
+                            if (fdidList.Contains(subentry.fileDataID))
+                            {
+                                var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
+
+                                if (encodingList.ContainsKey(cleanContentHash))
+                                {
+                                    encodingList[cleanContentHash].Add(subentry.fileDataID.ToString());
+                                }
+                                else
+                                {
+                                    encodingList.Add(cleanContentHash, new List<string>() { subentry.fileDataID.ToString() });
+                                }
+                            }
+                            continue;
+                        }
+                    }
+
+                    var fileList = new Dictionary<string, List<string>>();
+
+                    Console.WriteLine("Looking up in encoding..");
+                    foreach (var encodingEntry in encoding.aEntries)
+                    {
+                        string target = "";
+
+                        if (encodingList.ContainsKey(encodingEntry.cKey.ToLower()))
+                        {
+                            target = encodingEntry.eKeys[0].ToLower();
+                            //Console.WriteLine(target);
+                            foreach (var subName in encodingList[encodingEntry.cKey.ToLower()])
+                            {
+                                if (fileList.ContainsKey(target))
+                                {
+                                    fileList[target].Add(subName);
+                                }
+                                else
+                                {
+                                    fileList.Add(target, new List<string>() { subName });
+                                }
+                            }
+                            encodingList.Remove(encodingEntry.cKey.ToLower());
+                        }
+                    }
+
+                    var archivedFileList = new Dictionary<string, Dictionary<string, List<string>>>();
+                    var unarchivedFileList = new Dictionary<string, List<string>>();
+
+                    Console.WriteLine("Looking up in indexes..");
+                    foreach (var fileEntry in fileList)
+                    {
+                        if (!indexDictionary.TryGetValue(fileEntry.Key.ToUpper(), out IndexEntry entry))
+                        {
+                            unarchivedFileList.Add(fileEntry.Key, fileEntry.Value);
+                        }
+
+                        var index = cdnConfig.archives[entry.index];
+                        if (!archivedFileList.ContainsKey(index))
+                        {
+                            archivedFileList.Add(index, new Dictionary<string, List<string>>());
+                        }
+
+                        archivedFileList[index].Add(fileEntry.Key, fileEntry.Value);
+                    }
+
+                    var extractedFiles = 0;
+                    var totalFiles = fileList.Count;
+
+                    Console.WriteLine("Extracting " + unarchivedFileList.Count + " unarchived files..");
+                    foreach (var fileEntry in unarchivedFileList)
+                    {
+                        var target = fileEntry.Key;
+
+                        foreach (var filename in fileEntry.Value)
+                        {
+                            if (!Directory.Exists(Path.Combine(basedir, rootHash, Path.GetDirectoryName(filename))))
+                            {
+                                Directory.CreateDirectory(Path.Combine(basedir, rootHash, Path.GetDirectoryName(filename)));
+                            }
+                        }
+
+                        var unarchivedName = Path.Combine(cdn.cacheDir, "tpr", "wow", "data", target[0] + "" + target[1], target[2] + "" + target[3], target);
+                        if (File.Exists(unarchivedName))
+                        {
+                            foreach (var filename in fileEntry.Value)
+                            {
+                                try
+                                {
+                                    File.WriteAllBytes(Path.Combine(basedir, rootHash, filename), BLTE.Parse(File.ReadAllBytes(unarchivedName)));
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine(e.Message);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Unarchived file does not exist " + unarchivedName + ", cannot extract " + string.Join(',', fileEntry.Value));
+                        }
+
+                        extractedFiles++;
+
+                        if (extractedFiles % 100 == 0)
+                        {
+                            Console.WriteLine("[" + DateTime.Now.ToString() + "] Extracted " + extractedFiles + " out of " + totalFiles + " files");
+                        }
+                    }
+
+                    foreach (var archiveEntry in archivedFileList)
+                    {
+                        var archiveName = Path.Combine(cdn.cacheDir, "tpr", "wow", "data", archiveEntry.Key[0] + "" + archiveEntry.Key[1], archiveEntry.Key[2] + "" + archiveEntry.Key[3], archiveEntry.Key);
+                        Console.WriteLine("[" + DateTime.Now.ToString() + "] Extracting " + archiveEntry.Value.Count + " files from archive " + archiveEntry.Key + "..");
+
+                        using (var stream = new MemoryStream(File.ReadAllBytes(archiveName)))
+                        {
+                            foreach (var fileEntry in archiveEntry.Value)
+                            {
+                                var target = fileEntry.Key;
+
+                                foreach (var filename in fileEntry.Value)
+                                {
+                                    if (!Directory.Exists(Path.Combine(basedir, rootHash, Path.GetDirectoryName(filename))))
+                                    {
+                                        Directory.CreateDirectory(Path.Combine(basedir, rootHash, Path.GetDirectoryName(filename)));
+                                    }
+                                }
+
+                                if (indexDictionary.TryGetValue(target.ToUpper(), out IndexEntry entry))
+                                {
+                                    foreach (var filename in fileEntry.Value)
+                                    {
+                                        try
+                                        {
+                                            stream.Seek(entry.offset, SeekOrigin.Begin);
+
+                                            if (entry.offset > stream.Length || entry.offset + entry.size > stream.Length)
+                                            {
+                                                throw new Exception("File is beyond archive length, incomplete archive!");
+                                            }
+
+                                            var archiveBytes = new byte[entry.size];
+                                            stream.Read(archiveBytes, 0, (int)entry.size);
+                                            File.WriteAllBytes(Path.Combine(basedir, rootHash, filename), BLTE.Parse(archiveBytes));
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            Console.WriteLine(e.Message);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine("!!!!! Unable to find " + fileEntry.Key + " (" + fileEntry.Value[0] + ") in archives!");
+                                }
+
+                                extractedFiles++;
+
+                                if (extractedFiles % 1000 == 0)
+                                {
+                                    Console.WriteLine("[" + DateTime.Now.ToString() + "] Extracted " + extractedFiles + " out of " + totalFiles + " files");
+                                }
+                            }
+                        }
+                    }
+
+                    File.WriteAllText(Path.Combine(basedir, "lastextractedroot.txt"), rootHash);
+
+                    Environment.Exit(0);
+                }
+
                 if (args[0] == "extractfilesbyfnamelist" || args[0] == "extractfilesbyfdidlist")
                 {
                     if (args.Length != 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list");
@@ -476,17 +745,17 @@ namespace BuildBackup
                     root = GetRoot(Path.Combine("tpr", "wow"), rootHash, true);
 
                     var encodingList = new Dictionary<string, List<string>>();
+                    var chashList = new Dictionary<uint, string>();
 
                     foreach (var entry in root.entriesFDID)
                     {
                         foreach (var subentry in entry.Value)
                         {
-                            if (subentry.contentFlags.HasFlag(ContentFlags.LowViolence)) continue;
+                            if (subentry.contentFlags.HasFlag(ContentFlags.LowViolence))
+                                continue;
 
                             if (!subentry.localeFlags.HasFlag(LocaleFlags.All_WoW) && !subentry.localeFlags.HasFlag(LocaleFlags.enUS))
-                            {
                                 continue;
-                            }
 
                             if (args[0] == "extractfilesbyfnamelist")
                             {
@@ -518,9 +787,10 @@ namespace BuildBackup
                                     {
                                         encodingList.Add(cleanContentHash, new List<string>() { fdidList[subentry.fileDataID] });
                                     }
+
+                                    chashList.TryAdd(subentry.fileDataID, cleanContentHash);
                                 }
                             }
-
                             continue;
                         }
                     }
@@ -592,13 +862,37 @@ namespace BuildBackup
                         {
                             foreach (var filename in fileEntry.Value)
                             {
-                                try
+                                var needsExtract = true;
+                                if (File.Exists(Path.Combine(basedir, filename)))
                                 {
-                                    File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(File.ReadAllBytes(unarchivedName)));
+                                    // Calculate MD5 of file
+                                    var fileHasher = System.Security.Cryptography.MD5.Create();
+                                    var fileHash = fileHasher.ComputeHash(File.OpenRead(Path.Combine(basedir, filename)));
+                                    var cleanFileHash = Convert.ToHexString(fileHash).ToLower();
+
+                                    // Compare MD5s
+                                    if (!chashList.TryGetValue(uint.Parse(filename), out var targetHash))
+                                    {
+                                        Console.WriteLine("Could not find hash for " + filename);
+                                        continue;
+                                    }
+
+                                    if (targetHash != cleanFileHash)
+                                    {
+                                        needsExtract = true;
+                                    }
                                 }
-                                catch (Exception e)
+
+                                if (needsExtract)
                                 {
-                                    Console.WriteLine(e.Message);
+                                    try
+                                    {
+                                        File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(File.ReadAllBytes(unarchivedName)));
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine(e.Message);
+                                    }
                                 }
                             }
                         }
@@ -638,25 +932,47 @@ namespace BuildBackup
                                 {
                                     foreach (var filename in fileEntry.Value)
                                     {
+                                        var needsExtract = true;
                                         if (File.Exists(Path.Combine(basedir, filename)))
-                                            continue;
-
-                                        try
                                         {
-                                            stream.Seek(entry.offset, SeekOrigin.Begin);
+                                            // Calculate MD5 of file
+                                            var fileHasher = System.Security.Cryptography.MD5.Create();
+                                            var fileHash = fileHasher.ComputeHash(File.OpenRead(Path.Combine(basedir, filename)));
+                                            var cleanFileHash = Convert.ToHexString(fileHash).ToLower();
 
-                                            if (entry.offset > stream.Length || entry.offset + entry.size > stream.Length)
+                                            if (!chashList.TryGetValue(uint.Parse(filename), out var targetHash))
                                             {
-                                                throw new Exception("File is beyond archive length, incomplete archive!");
+                                                Console.WriteLine("Could not find hash for " + filename);
+                                                continue;
                                             }
 
-                                            var archiveBytes = new byte[entry.size];
-                                            stream.Read(archiveBytes, 0, (int)entry.size);
-                                            File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(archiveBytes));
+                                            // Compare MD5s
+                                            if (targetHash != cleanFileHash)
+                                            {
+                                                needsExtract = true;
+                                            }
                                         }
-                                        catch (Exception e)
+
+                                        if (needsExtract)
                                         {
-                                            Console.WriteLine(e.Message);
+                                            try
+                                            {
+                                                stream.Seek(entry.offset, SeekOrigin.Begin);
+
+                                                if (entry.offset > stream.Length || entry.offset + entry.size > stream.Length)
+                                                {
+                                                    throw new Exception("File is beyond archive length, incomplete archive!");
+                                                }
+
+                                                var archiveBytes = new byte[entry.size];
+                                                stream.Read(archiveBytes, 0, (int)entry.size);
+                                                File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(archiveBytes));
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Console.WriteLine(e.Message);
+                                            }
+
                                         }
                                     }
                                 }
@@ -727,7 +1043,7 @@ namespace BuildBackup
                     var encryptedContentSizes = new Dictionary<string, ulong>();
                     foreach (var entry in encoding.aEntries)
                     {
-                        for(var i = 0; i < entry.eKeys.Count; i++)
+                        for (var i = 0; i < entry.eKeys.Count; i++)
                         {
                             if (encryptedKeys.ContainsKey(entry.eKeys[i]))
                             {
@@ -737,7 +1053,7 @@ namespace BuildBackup
                                 }
                                 else
                                 {
-                                    encryptedContentHashes.Add(entry.cKey, new List<string>() { encryptedKeys[entry.eKeys[i]]});
+                                    encryptedContentHashes.Add(entry.cKey, new List<string>() { encryptedKeys[entry.eKeys[i]] });
                                     encryptedContentSizes.Add(entry.cKey, entry.size);
                                 }
                             }
@@ -756,7 +1072,7 @@ namespace BuildBackup
                             if (encryptedContentHashes.ContainsKey(md5string))
                             {
                                 var stringBlocks = encryptedContentHashes[md5string];
-                                foreach(var rawStringBlock in stringBlocks)
+                                foreach (var rawStringBlock in stringBlocks)
                                 {
                                     var stringBlock = rawStringBlock;
                                     var keyList = new List<string>();
@@ -811,10 +1127,10 @@ namespace BuildBackup
 
                     string rootKey = "";
                     var encryptedContentHashes = new HashSet<string>();
-                    
+
                     foreach (var entry in encoding.aEntries)
                     {
-                        for(var i = 0; i < entry.eKeys.Count; i++)
+                        for (var i = 0; i < entry.eKeys.Count; i++)
                         {
                             if (encryptedKeys.Contains(entry.eKeys[i]) && !encryptedContentHashes.Contains(entry.cKey))
                             {
@@ -1030,7 +1346,7 @@ namespace BuildBackup
                 {
                     //Console.WriteLine("CDNConfig loaded, " + cdnConfig.archives.Count() + " archives");
                 }
-                else if(cdnConfig.fileIndex != null)
+                else if (cdnConfig.fileIndex != null)
                 {
 
                 }
@@ -1040,7 +1356,7 @@ namespace BuildBackup
                     continue;
                 }
 
-                if (!string.IsNullOrEmpty(versions.entries[0].keyRing)) 
+                if (!string.IsNullOrEmpty(versions.entries[0].keyRing))
                     await cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
 
                 if (!backupPrograms.Contains(program))
@@ -1059,10 +1375,10 @@ namespace BuildBackup
                 }
 
                 Console.Write("Downloading patch files..");
-                if (!string.IsNullOrEmpty(buildConfig.patch)) 
+                if (!string.IsNullOrEmpty(buildConfig.patch))
                     patch = GetPatch(cdns.entries[0].path + "/", buildConfig.patch, true);
 
-                if (!string.IsNullOrEmpty(buildConfig.patchConfig)) 
+                if (!string.IsNullOrEmpty(buildConfig.patchConfig))
                     await cdn.Get(cdns.entries[0].path + "/config/" + buildConfig.patchConfig[0] + buildConfig.patchConfig[1] + "/" + buildConfig.patchConfig[2] + buildConfig.patchConfig[3] + "/" + buildConfig.patchConfig);
 
                 if (buildConfig.patchIndex != null && buildConfig.patchIndex.Length == 2 && !string.IsNullOrEmpty(buildConfig.patchIndex[1]))
@@ -1074,7 +1390,7 @@ namespace BuildBackup
                 {
                     Console.WriteLine("CDN config " + versions.entries[0].cdnConfig + " has not been loaded yet, loading..");
 
-                    if(cdnConfig.archives != null)
+                    if (cdnConfig.archives != null)
                     {
                         Console.Write("Loading " + cdnConfig.archives.Count() + " indexes..");
                         GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
@@ -1174,7 +1490,7 @@ namespace BuildBackup
                     }
 
                     finishedEncodings.Add(buildConfig.encoding[1]);
-                
+
                     if (buildConfig.install.Length == 2)
                     {
                         installKey = buildConfig.install[1];
@@ -1195,7 +1511,7 @@ namespace BuildBackup
 
                     Console.Write("..done\n");
                 }
-              
+
 
                 if (program == "wow" || program == "wowt" || program == "wow_beta" || program == "wow_classic" || program == "wow_classic_ptr") // Only these are supported right now
                 {
@@ -1960,7 +2276,7 @@ namespace BuildBackup
                         buildConfig.patchIndexSize = cols[1].Split(' ');
                         break;
                     default:
-                        Console.WriteLine("!!!!!!!! Unknown buildconfig variable '" + cols[0] + "'");
+                        //Console.WriteLine("!!!!!!!! Unknown buildconfig variable '" + cols[0] + "'");
                         break;
                 }
             }
@@ -2313,7 +2629,7 @@ namespace BuildBackup
                 download.numEntries = bin.ReadUInt32(true);
                 download.numTags = bin.ReadUInt16(true);
                 download.flagSize = bin.ReadByte();
-                
+
                 download.entries = new DownloadEntry[download.numEntries];
                 for (int i = 0; i < download.numEntries; i++)
                 {
