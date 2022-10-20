@@ -830,6 +830,7 @@ namespace BuildBackup
                         if (!indexDictionary.TryGetValue(fileEntry.Key.ToUpper(), out IndexEntry entry))
                         {
                             unarchivedFileList.Add(fileEntry.Key, fileEntry.Value);
+                            continue;
                         }
 
                         var index = cdnConfig.archives[entry.index];
