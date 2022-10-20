@@ -862,37 +862,13 @@ namespace BuildBackup
                         {
                             foreach (var filename in fileEntry.Value)
                             {
-                                var needsExtract = true;
-                                if (File.Exists(Path.Combine(basedir, filename)))
+                                try
                                 {
-                                    // Calculate MD5 of file
-                                    var fileHasher = System.Security.Cryptography.MD5.Create();
-                                    var fileHash = fileHasher.ComputeHash(File.OpenRead(Path.Combine(basedir, filename)));
-                                    var cleanFileHash = Convert.ToHexString(fileHash).ToLower();
-
-                                    // Compare MD5s
-                                    if (!chashList.TryGetValue(uint.Parse(filename), out var targetHash))
-                                    {
-                                        Console.WriteLine("Could not find hash for " + filename);
-                                        continue;
-                                    }
-
-                                    if (targetHash != cleanFileHash)
-                                    {
-                                        needsExtract = true;
-                                    }
+                                    File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(File.ReadAllBytes(unarchivedName)));
                                 }
-
-                                if (needsExtract)
+                                catch (Exception e)
                                 {
-                                    try
-                                    {
-                                        File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(File.ReadAllBytes(unarchivedName)));
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        Console.WriteLine(e.Message);
-                                    }
+                                    Console.WriteLine(e.Message);
                                 }
                             }
                         }
@@ -932,47 +908,22 @@ namespace BuildBackup
                                 {
                                     foreach (var filename in fileEntry.Value)
                                     {
-                                        var needsExtract = true;
-                                        if (File.Exists(Path.Combine(basedir, filename)))
+                                        try
                                         {
-                                            // Calculate MD5 of file
-                                            var fileHasher = System.Security.Cryptography.MD5.Create();
-                                            var fileHash = fileHasher.ComputeHash(File.OpenRead(Path.Combine(basedir, filename)));
-                                            var cleanFileHash = Convert.ToHexString(fileHash).ToLower();
+                                            stream.Seek(entry.offset, SeekOrigin.Begin);
 
-                                            if (!chashList.TryGetValue(uint.Parse(filename), out var targetHash))
+                                            if (entry.offset > stream.Length || entry.offset + entry.size > stream.Length)
                                             {
-                                                Console.WriteLine("Could not find hash for " + filename);
-                                                continue;
+                                                throw new Exception("File is beyond archive length, incomplete archive!");
                                             }
 
-                                            // Compare MD5s
-                                            if (targetHash != cleanFileHash)
-                                            {
-                                                needsExtract = true;
-                                            }
+                                            var archiveBytes = new byte[entry.size];
+                                            stream.Read(archiveBytes, 0, (int)entry.size);
+                                            File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(archiveBytes));
                                         }
-
-                                        if (needsExtract)
+                                        catch (Exception e)
                                         {
-                                            try
-                                            {
-                                                stream.Seek(entry.offset, SeekOrigin.Begin);
-
-                                                if (entry.offset > stream.Length || entry.offset + entry.size > stream.Length)
-                                                {
-                                                    throw new Exception("File is beyond archive length, incomplete archive!");
-                                                }
-
-                                                var archiveBytes = new byte[entry.size];
-                                                stream.Read(archiveBytes, 0, (int)entry.size);
-                                                File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(archiveBytes));
-                                            }
-                                            catch (Exception e)
-                                            {
-                                                Console.WriteLine(e.Message);
-                                            }
-
+                                            Console.WriteLine(e.Message);
                                         }
                                     }
                                 }
