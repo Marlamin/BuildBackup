@@ -65,7 +65,15 @@ namespace BuildBackup
             };
 
             // Check if cache/backup directory exists
-            if (!Directory.Exists(cdn.cacheDir)) { Directory.CreateDirectory(cdn.cacheDir); }
+            try
+            {
+                if (!Directory.Exists(cdn.cacheDir)) { Directory.CreateDirectory(cdn.cacheDir); }
+            }catch(Exception e)
+            {
+                Console.WriteLine("Error creating cache directory: " + e.Message);
+                Console.ReadKey();
+                return;
+            }
 
             if (args.Length > 0)
             {
@@ -1160,10 +1168,20 @@ namespace BuildBackup
                     Console.Write(Encoding.UTF8.GetString(file));
                     Environment.Exit(0);
                 }
-                if (args[0] == "dumprawfiletofile")
+                if (args[0] == "dumprawfiletofile" || File.Exists(args[0]))
                 {
-                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, path, outfile");
-                    File.WriteAllBytes(args[2], BLTE.Parse(File.ReadAllBytes(args[1])));
+                    if(args.Length == 1)
+                    {
+                        File.WriteAllBytes(args[0] + ".dump", BLTE.Parse(File.ReadAllBytes(args[0])));
+                    }
+                    else if (args.Length == 3)
+                    {
+                        File.WriteAllBytes(args[2], BLTE.Parse(File.ReadAllBytes(args[1])));
+                    }
+                    else
+                    {
+                        throw new Exception("Not enough arguments. Need mode, path, outfile");
+                    }
                     Environment.Exit(0);
                 }
                 if (args[0] == "dumpindex")
