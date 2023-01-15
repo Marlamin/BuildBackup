@@ -180,8 +180,15 @@ namespace BuildBackup
                 }
                 if (args[0] == "dumproot2")
                 {
-                    if (args.Length != 2) throw new Exception("Not enough arguments. Need mode, root");
-                    cdns = GetCDNs("wow");
+                    if (args.Length < 2) throw new Exception("Not enough arguments. Need mode, root");
+
+                    var product = "wow";
+                    if (args.Length == 3)
+                    {
+                        product = args[2];
+                    }
+                    
+                    cdns = GetCDNs(product);
 
                     var hasher = new Jenkins96();
                     UpdateListfile();
@@ -722,16 +729,20 @@ namespace BuildBackup
 
                 if (args[0] == "extractfilesbyfnamelist" || args[0] == "extractfilesbyfdidlist")
                 {
-                    if (args.Length != 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list");
+                    if (args.Length < 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list");
 
-                    buildConfig = GetBuildConfig(Path.Combine("tpr", "wow"), args[1]);
+                    var product = "wow";
+                    if(args.Length == 6)
+                        product = args[5];    
+                    
+                    buildConfig = GetBuildConfig("tpr/" + product, args[1]);
                     if (string.IsNullOrWhiteSpace(buildConfig.buildName)) { Console.WriteLine("Invalid buildConfig!"); }
 
-                    encoding = GetEncoding(Path.Combine("tpr", "wow"), buildConfig.encoding[1]).Result;
+                    encoding = GetEncoding("tpr/" + product, buildConfig.encoding[1]).Result;
 
-                    cdnConfig = GetCDNconfig(Path.Combine("tpr", "wow"), args[2]);
+                    cdnConfig = GetCDNconfig("tpr/" + product, args[2]);
 
-                    GetIndexes(Path.Combine("tpr", "wow"), cdnConfig.archives);
+                    GetIndexes("tpr/" + product, cdnConfig.archives);
 
                     var basedir = args[3];
 
@@ -777,7 +788,7 @@ namespace BuildBackup
 
                     Console.WriteLine("Looking up in root..");
 
-                    root = GetRoot(Path.Combine("tpr", "wow"), rootHash, true);
+                    root = GetRoot("tpr/" + product, rootHash, true);
 
                     var encodingList = new Dictionary<string, List<string>>();
                     var chashList = new Dictionary<uint, string>();
@@ -880,7 +891,9 @@ namespace BuildBackup
                     var extractedFiles = 0;
                     var totalFiles = fileList.Count;
 
-                    Console.WriteLine("Extracting " + unarchivedFileList.Count + " unarchived files..");
+                    if(unarchivedFileList.Count > 0)
+                        Console.WriteLine("Extracting " + unarchivedFileList.Count + " unarchived files..");
+                    
                     foreach (var fileEntry in unarchivedFileList)
                     {
                         var target = fileEntry.Key;
@@ -893,14 +906,21 @@ namespace BuildBackup
                             }
                         }
 
-                        var unarchivedName = Path.Combine(cdn.cacheDir, "tpr", "wow", "data", target[0] + "" + target[1], target[2] + "" + target[3], target);
+                        var unarchivedName = Path.Combine(cdn.cacheDir, "tpr", product, "data", target[0] + "" + target[1], target[2] + "" + target[3], target);
                         if (File.Exists(unarchivedName))
                         {
                             foreach (var filename in fileEntry.Value)
                             {
                                 try
                                 {
-                                    File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(File.ReadAllBytes(unarchivedName)));
+                                    if(product == "wowdev")
+                                    {
+                                        File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(BLTE.DecryptFile(target, File.ReadAllBytes(unarchivedName), "wowdevalpha")));
+                                    }
+                                    else
+                                    {
+                                        File.WriteAllBytes(Path.Combine(basedir, filename), BLTE.Parse(File.ReadAllBytes(unarchivedName)));
+                                    }
                                 }
                                 catch (Exception e)
                                 {
@@ -923,10 +943,10 @@ namespace BuildBackup
 
                     foreach (var archiveEntry in archivedFileList)
                     {
-                        var archiveName = Path.Combine(cdn.cacheDir, "tpr", "wow", "data", archiveEntry.Key[0] + "" + archiveEntry.Key[1], archiveEntry.Key[2] + "" + archiveEntry.Key[3], archiveEntry.Key);
+                        var archiveName = Path.Combine(cdn.cacheDir, "tpr", product, "data", archiveEntry.Key[0] + "" + archiveEntry.Key[1], archiveEntry.Key[2] + "" + archiveEntry.Key[3], archiveEntry.Key);
                         Console.WriteLine("[" + DateTime.Now.ToString() + "] Extracting " + archiveEntry.Value.Count + " files from archive " + archiveEntry.Key + "..");
 
-                        using (var stream = new MemoryStream(File.ReadAllBytes(archiveName)))
+                        using (var stream = new MemoryStream(await cdn.Get("tpr/" + product + "/data/" + archiveEntry.Key[0] + "" + archiveEntry.Key[1] + "/" + archiveEntry.Key[2] + "" + archiveEntry.Key[3] + "/" + archiveEntry.Key), true))
                         {
                             foreach (var fileEntry in archiveEntry.Value)
                             {
@@ -1796,38 +1816,18 @@ namespace BuildBackup
             {
                 var index = cdnConfig.archives[entry.index];
 
-                var archiveName = Path.Combine(cdn.cacheDir, cdndir, "data", index[0] + "" + index[1], index[2] + "" + index[3], index);
-                if (!File.Exists(archiveName))
-                {
-                    throw new FileNotFoundException("Unable to find archive " + index + " on disk!");
-                }
-
-                using (BinaryReader bin = new BinaryReader(File.Open(archiveName, FileMode.Open, FileAccess.Read)))
+                using (BinaryReader bin = new BinaryReader(new MemoryStream(cdn.Get(cdndir + "/data/" + index[0] + "" + index[1] + "/" + index[2] + "" + index[3] + "/" + index).Result, true)))
                 {
                     bin.BaseStream.Position = entry.offset;
                     try
                     {
                         if (!raw)
                         {
-                            if (cdndir == "tpr/wowdev")
-                            {
-                                return BLTE.Parse(BLTE.DecryptFile(target, bin.ReadBytes((int)entry.size), "wowdevalpha"));
-                            }
-                            else
-                            {
-                                return BLTE.Parse(bin.ReadBytes((int)entry.size));
-                            }
+                            return BLTE.Parse(bin.ReadBytes((int)entry.size));
                         }
                         else
                         {
-                            if (cdndir == "tpr/wowdev")
-                            {
-                                return BLTE.DecryptFile(target, bin.ReadBytes((int)entry.size), "wowdevalpha");
-                            }
-                            else
-                            {
-                                return bin.ReadBytes((int)entry.size);
-                            }
+                            return bin.ReadBytes((int)entry.size);
                         }
                     }
                     catch (Exception e)
