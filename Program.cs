@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,6 +56,7 @@ namespace BuildBackup
                 //"level3.blizzard.com",      // Level3
                 //"us.cdn.blizzard.com",      // Official US CDN
                 //"eu.cdn.blizzard.com",      // Official EU CDN
+                //"kr.cdn.blizzard.com",      // Official KR CDN
                 "cdn.blizzard.com",         // Official regionless CDN
                 //"client01.pdl.wow.battlenet.com.cn", // China 1
                 //"client02.pdl.wow.battlenet.com.cn", // China 2
@@ -68,7 +70,8 @@ namespace BuildBackup
             try
             {
                 if (!Directory.Exists(cdn.cacheDir)) { Directory.CreateDirectory(cdn.cacheDir); }
-            }catch(Exception e)
+            }
+            catch (Exception e)
             {
                 Console.WriteLine("Error creating cache directory: " + e.Message);
                 Console.ReadKey();
@@ -234,6 +237,22 @@ namespace BuildBackup
 
                     Environment.Exit(0);
                 }
+                if (args[0] == "dumproot4")
+                {
+                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, root");
+
+                    var root = GetRoot("tpr/" + args[1] + "/", args[2], true);
+
+                    foreach (var entry in root.entriesFDID)
+                    {
+                        foreach (var subentry in entry.Value)
+                        {
+                            Console.WriteLine(subentry.fileDataID + ";" + Convert.ToHexString(subentry.md5).ToLower() + ";" + subentry.localeFlags.ToString() + ";" + subentry.contentFlags.ToString());
+                        }
+                    }
+
+                    Environment.Exit(0);
+                }
                 if (args[0] == "calchash")
                 {
                     var hasher = new Jenkins96();
@@ -293,8 +312,7 @@ namespace BuildBackup
                 {
                     if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, encoding");
 
-                    cdns = GetCDNs(args[1]);
-                    encoding = GetEncoding(cdns.entries[0].path + "/", args[2], 0, true).Result;
+                    encoding = GetEncoding("tpr/" + args[1] + "/", args[2], 0, true).Result;
                     foreach (var entry in encoding.aEntries)
                     {
                         for (var i = 0; i < entry.keyCount; i++)
@@ -304,6 +322,15 @@ namespace BuildBackup
                         }
                     }
                     Console.WriteLine("ENCODINGESPEC " + encoding.encodingESpec);
+                    Environment.Exit(0);
+                }
+                if (args[0] == "dumpconfig")
+                {
+                    if (args.Length != 3) throw new Exception("Not enough arguments. Need mode, product, hash");
+                    var product = args[1];
+                    var hash = Path.GetFileNameWithoutExtension(args[2]);
+                    var content = Encoding.UTF8.GetString(cdn.Get("tpr/" + product + "/config/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result);
+                    Console.WriteLine(content);
                     Environment.Exit(0);
                 }
                 if (args[0] == "extractfilebycontenthash" || args[0] == "extractrawfilebycontenthash")
@@ -509,7 +536,7 @@ namespace BuildBackup
                     {
                         fdidList.AddRange(root.entriesFDID.Keys);
                     }
-                    
+
                     Console.WriteLine("Looking up in root..");
 
                     var encodingList = new Dictionary<string, List<string>>();
@@ -958,6 +985,7 @@ namespace BuildBackup
                     if (args.Length == 4)
                     {
                         checkPrograms = new string[] { args[1] };
+                        backupPrograms = new string[] { args[1] };
                         overrideBuildconfig = args[2];
                         overrideCDNconfig = args[3];
                         overrideVersions = true;
@@ -968,6 +996,7 @@ namespace BuildBackup
                     if (args.Length == 2)
                     {
                         checkPrograms = new string[] { args[1] };
+                        backupPrograms = new string[] { args[1] };
                     }
                 }
                 if (args[0] == "dumpencrypted")
@@ -1170,7 +1199,7 @@ namespace BuildBackup
                 }
                 if (args[0] == "dumprawfiletofile" || File.Exists(args[0]))
                 {
-                    if(args.Length == 1)
+                    if (args.Length == 1)
                     {
                         File.WriteAllBytes(args[0] + ".dump", BLTE.Parse(File.ReadAllBytes(args[0])));
                     }
@@ -1217,7 +1246,10 @@ namespace BuildBackup
                 checkPrograms = SettingsManager.checkProducts;
             }
 
-            backupPrograms = SettingsManager.backupProducts;
+            if (backupPrograms == null)
+            {
+                backupPrograms = SettingsManager.backupProducts;
+            }
 
             var finishedCDNConfigs = new List<string>();
             var finishedEncodings = new List<string>();
@@ -1345,14 +1377,22 @@ namespace BuildBackup
                 }
 
                 Console.Write("Downloading patch files..");
-                if (!string.IsNullOrEmpty(buildConfig.patch))
-                    patch = GetPatch(cdns.entries[0].path + "/", buildConfig.patch, true);
+                try
+                {
+                    if (!string.IsNullOrEmpty(buildConfig.patch))
+                        patch = GetPatch(cdns.entries[0].path + "/", buildConfig.patch, true);
 
-                if (!string.IsNullOrEmpty(buildConfig.patchConfig))
-                    await cdn.Get(cdns.entries[0].path + "/config/" + buildConfig.patchConfig[0] + buildConfig.patchConfig[1] + "/" + buildConfig.patchConfig[2] + buildConfig.patchConfig[3] + "/" + buildConfig.patchConfig);
+                    if (!string.IsNullOrEmpty(buildConfig.patchConfig))
+                        await cdn.Get(cdns.entries[0].path + "/config/" + buildConfig.patchConfig[0] + buildConfig.patchConfig[1] + "/" + buildConfig.patchConfig[2] + buildConfig.patchConfig[3] + "/" + buildConfig.patchConfig);
 
-                if (buildConfig.patchIndex != null && buildConfig.patchIndex.Length == 2 && !string.IsNullOrEmpty(buildConfig.patchIndex[1]))
-                    await cdn.Get(cdns.entries[0].path + "/data/" + buildConfig.patchIndex[1][0] + buildConfig.patchIndex[1][1] + "/" + buildConfig.patchIndex[1][2] + buildConfig.patchIndex[1][3] + "/" + buildConfig.patchIndex[1]);
+                    if (buildConfig.patchIndex != null && buildConfig.patchIndex.Length == 2 && !string.IsNullOrEmpty(buildConfig.patchIndex[1]))
+                        await cdn.Get(cdns.entries[0].path + "/data/" + buildConfig.patchIndex[1][0] + buildConfig.patchIndex[1][1] + "/" + buildConfig.patchIndex[1][2] + buildConfig.patchIndex[1][3] + "/" + buildConfig.patchIndex[1]);
+
+                }catch (Exception e)
+                {
+                    Console.WriteLine("Failed to download patch files: " + e.Message);
+                }
+
 
                 Console.Write("..done\n");
 
@@ -1711,11 +1751,25 @@ namespace BuildBackup
             {
                 if (!raw)
                 {
-                    return BLTE.Parse(File.ReadAllBytes(unarchivedName));
+                    if(cdndir == "tpr/wowdev")
+                    {
+                        return BLTE.Parse(BLTE.DecryptFile(target, File.ReadAllBytes(unarchivedName), "wowdevalpha"));
+                    }
+                    else
+                    {
+                        return BLTE.Parse(File.ReadAllBytes(unarchivedName));
+                    }
                 }
                 else
                 {
-                    return File.ReadAllBytes(unarchivedName);
+                    if (cdndir == "tpr/wowdev")
+                    {
+                        return BLTE.DecryptFile(target, File.ReadAllBytes(unarchivedName), "wowdevalpha");
+                    }
+                    else
+                    {
+                        return File.ReadAllBytes(unarchivedName);
+                    }
                 }
             }
             else
@@ -1755,11 +1809,25 @@ namespace BuildBackup
                     {
                         if (!raw)
                         {
-                            return BLTE.Parse(bin.ReadBytes((int)entry.size));
+                            if (cdndir == "tpr/wowdev")
+                            {
+                                return BLTE.Parse(BLTE.DecryptFile(target, bin.ReadBytes((int)entry.size), "wowdevalpha"));
+                            }
+                            else
+                            {
+                                return BLTE.Parse(bin.ReadBytes((int)entry.size));
+                            }
                         }
                         else
                         {
-                            return bin.ReadBytes((int)entry.size);
+                            if (cdndir == "tpr/wowdev")
+                            {
+                                return BLTE.DecryptFile(target, bin.ReadBytes((int)entry.size), "wowdevalpha");
+                            }
+                            else
+                            {
+                                return bin.ReadBytes((int)entry.size);
+                            }
                         }
                     }
                     catch (Exception e)
@@ -2142,7 +2210,7 @@ namespace BuildBackup
 
             if (string.IsNullOrEmpty(content) || !content.StartsWith("# Build"))
             {
-                Console.WriteLine("Error reading build config!");
+                Console.WriteLine("Error reading build config");
                 return buildConfig;
             }
 
@@ -2922,7 +2990,8 @@ namespace BuildBackup
                 using (var stream = new MemoryStream())
                 {
                     client.Headers[System.Net.HttpRequestHeader.AcceptEncoding] = "gzip";
-                    using (var responseStream = new System.IO.Compression.GZipStream(client.OpenRead("https://wow.tools/casc/listfile/download"), System.IO.Compression.CompressionMode.Decompress))
+                    client.Headers[System.Net.HttpRequestHeader.UserAgent] = "BuildBackup";
+                    using (var responseStream = new System.IO.Compression.GZipStream(client.OpenRead("https://github.com/wowdev/wow-listfile/raw/master/listfile.txt"), System.IO.Compression.CompressionMode.Decompress))
                     {
                         responseStream.CopyTo(stream);
                         File.WriteAllBytes("listfile.txt", stream.ToArray());
