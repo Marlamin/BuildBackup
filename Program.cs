@@ -2568,6 +2568,15 @@ namespace BuildBackup
                 {
                     totalFiles = bin.ReadUInt32();
                     namedFiles = bin.ReadUInt32();
+
+                    if(totalFiles < 1000)
+                    {
+                        // Post 10.1.7
+                        totalFiles = bin.ReadUInt32();
+                        namedFiles = bin.ReadUInt32();
+                        bin.ReadUInt32();
+                    }
+                    
                     newRoot = true;
                 }
                 else
