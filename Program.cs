@@ -1294,17 +1294,36 @@ namespace BuildBackup
 
                 Console.WriteLine("Using program " + program);
 
-                try
+                if (!overrideVersions)
                 {
-                    versions = GetVersions(program);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error parsing versions: " + e.Message);
-                }
+                    try
+                    {
+                        versions = GetVersions(program);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Error parsing versions: " + e.Message);
+                    }
 
-                if (versions.entries == null || versions.entries.Count() == 0) { Console.WriteLine("Invalid versions file for " + program + ", skipping!"); continue; }
-                Console.WriteLine("Loaded " + versions.entries.Count() + " versions");
+                    if (versions.entries == null || versions.entries.Count() == 0) { Console.WriteLine("Invalid versions file for " + program + ", skipping!"); continue; }
+
+                    Console.WriteLine("Loaded " + versions.entries.Count() + " versions");
+
+                    if (!string.IsNullOrEmpty(versions.entries[0].productConfig))
+                    {
+                        productConfig = GetProductConfig(cdns.entries[0].configPath + "/", versions.entries[0].productConfig);
+                    }
+
+                    // Retrieve all buildconfigs
+                    for (var i = 0; i < versions.entries.Count(); i++)
+                    {
+                        GetBuildConfig(cdns.entries[0].path + "/", versions.entries[i].buildConfig);
+                    }
+
+                    // Retrieve keyring
+                    if (!string.IsNullOrEmpty(versions.entries[0].keyRing))
+                        await cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
+                }
 
                 try
                 {
@@ -1316,12 +1335,8 @@ namespace BuildBackup
                 }
 
                 if (cdns.entries == null || cdns.entries.Count() == 0) { Console.WriteLine("Invalid CDNs file for " + program + ", skipping!"); continue; }
-                Console.WriteLine("Loaded " + cdns.entries.Count() + " cdns");
 
-                if (!string.IsNullOrEmpty(versions.entries[0].productConfig))
-                {
-                    productConfig = GetProductConfig(cdns.entries[0].configPath + "/", versions.entries[0].productConfig);
-                }
+                Console.WriteLine("Loaded " + cdns.entries.Count() + " cdns");
 
                 var decryptionKeyName = "";
 
@@ -1339,25 +1354,23 @@ namespace BuildBackup
                     buildConfig = GetBuildConfig(cdns.entries[0].path + "/", versions.entries[0].buildConfig);
                 }
 
-                // Retrieve all buildconfigs
-                for (var i = 0; i < versions.entries.Count(); i++)
-                {
-                    GetBuildConfig(cdns.entries[0].path + "/", versions.entries[i].buildConfig);
-                }
-
                 if (string.IsNullOrWhiteSpace(buildConfig.buildName))
                 {
                     Console.WriteLine("Missing buildname in buildConfig for " + program + ", setting build name!");
                     buildConfig.buildName = "UNKNOWN";
                 }
 
+                var currentCDNConfig = "";
+
                 if (overrideVersions && !string.IsNullOrEmpty(overrideCDNconfig))
                 {
                     cdnConfig = GetCDNconfig(cdns.entries[0].path + "/", overrideCDNconfig);
+                    currentCDNConfig = overrideCDNconfig;
                 }
                 else
                 {
                     cdnConfig = GetCDNconfig(cdns.entries[0].path + "/", versions.entries[0].cdnConfig);
+                    currentCDNConfig = versions.entries[0].cdnConfig;
                 }
 
                 if (cdnConfig.builds != null)
@@ -1377,9 +1390,6 @@ namespace BuildBackup
                     Console.WriteLine("Invalid cdnConfig for " + program + "!");
                     continue;
                 }
-
-                if (!string.IsNullOrEmpty(versions.entries[0].keyRing))
-                    await cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
 
                 if (!backupPrograms.Contains(program))
                 {
@@ -1408,7 +1418,8 @@ namespace BuildBackup
                     if (buildConfig.patchIndex != null && buildConfig.patchIndex.Length == 2 && !string.IsNullOrEmpty(buildConfig.patchIndex[1]))
                         await cdn.Get(cdns.entries[0].path + "/data/" + buildConfig.patchIndex[1][0] + buildConfig.patchIndex[1][1] + "/" + buildConfig.patchIndex[1][2] + buildConfig.patchIndex[1][3] + "/" + buildConfig.patchIndex[1]);
 
-                }catch (Exception e)
+                }
+                catch (Exception e)
                 {
                     Console.WriteLine("Failed to download patch files: " + e.Message);
                 }
@@ -1416,9 +1427,9 @@ namespace BuildBackup
 
                 Console.Write("..done\n");
 
-                if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig))
+                if (!finishedCDNConfigs.Contains(currentCDNConfig))
                 {
-                    Console.WriteLine("CDN config " + versions.entries[0].cdnConfig + " has not been loaded yet, loading..");
+                    Console.WriteLine("CDN config " + currentCDNConfig + " has not been loaded yet, loading..");
 
                     if (cdnConfig.archives != null)
                     {
@@ -1482,7 +1493,7 @@ namespace BuildBackup
                         else
                         {
                             Console.WriteLine("Not a full run, skipping archive downloads..");
-                            if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig)) { finishedCDNConfigs.Add(versions.entries[0].cdnConfig); }
+                            if (!finishedCDNConfigs.Contains(currentCDNConfig)) { finishedCDNConfigs.Add(currentCDNConfig); }
                         }
                     }
                 }
@@ -1578,7 +1589,7 @@ namespace BuildBackup
                     hashes.Remove(entry.Key.ToUpper());
                 }
 
-                if (!finishedCDNConfigs.Contains(versions.entries[0].cdnConfig))
+                if (!finishedCDNConfigs.Contains(currentCDNConfig))
                 {
                     if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
                     {
@@ -1685,7 +1696,7 @@ namespace BuildBackup
                         Console.Write("..done\n");
                     }
 
-                    finishedCDNConfigs.Add(versions.entries[0].cdnConfig);
+                    finishedCDNConfigs.Add(currentCDNConfig);
                 }
 
                 // Unarchived files -- files in encoding but not in indexes. Can vary per build!
@@ -2036,6 +2047,15 @@ namespace BuildBackup
             string content;
 
             var cdns = new CdnsFile();
+
+            if (program == "gryphon")
+            {
+                cdns.entries = new CdnsEntry[1];
+                cdns.entries[0].hosts = new string[2] { "http://cdn.blizzard.com", "http://blzddist1-a.akamaihd.net" };
+                cdns.entries[0].path = "tpr/gryphon";
+                cdns.entries[0].configPath = "configs/data/";
+                return cdns;
+            }
 
             if (!SettingsManager.useRibbit)
             {
