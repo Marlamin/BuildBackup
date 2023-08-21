@@ -1635,7 +1635,7 @@ namespace BuildBackup
                         Console.Write("..done\n");
                     }
 
-                    if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex))
+                    if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex) && SettingsManager.downloadPatchFiles)
                     {
                         Console.Write("Downloading " + patchFileIndexList.Count + " unarchived patch files from patch file index..");
 
@@ -1664,7 +1664,7 @@ namespace BuildBackup
                         Console.Write("..done\n");
                     }
 
-                    if (cdnConfig.patchArchives != null)
+                    if (SettingsManager.downloadPatchFiles && cdnConfig.patchArchives != null)
                     {
                         Console.Write("Downloading " + cdnConfig.patchArchives.Count() + " patch archives..");
 
@@ -1722,50 +1722,53 @@ namespace BuildBackup
                 await Task.WhenAll(unarchivedFileTasks);
                 Console.Write("..done\n");
 
-                if (cdnConfig.patchArchives != null)
+                if (SettingsManager.downloadPatchFiles)
                 {
-                    if (patch.blocks != null)
+                    if (cdnConfig.patchArchives != null)
                     {
-                        var unarchivedPatchKeyList = new List<string>();
-                        foreach (var block in patch.blocks)
+                        if (patch.blocks != null)
                         {
-                            foreach (var fileBlock in block.files)
+                            var unarchivedPatchKeyList = new List<string>();
+                            foreach (var block in patch.blocks)
                             {
-                                foreach (var patch in fileBlock.patches)
+                                foreach (var fileBlock in block.files)
                                 {
-                                    var pKey = Convert.ToHexString(patch.patchEncodingKey);
-                                    if (!patchIndexDictionary.ContainsKey(pKey))
+                                    foreach (var patch in fileBlock.patches)
                                     {
-                                        unarchivedPatchKeyList.Add(pKey);
+                                        var pKey = Convert.ToHexString(patch.patchEncodingKey);
+                                        if (!patchIndexDictionary.ContainsKey(pKey))
+                                        {
+                                            unarchivedPatchKeyList.Add(pKey);
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        if (unarchivedPatchKeyList.Count > 0)
-                        {
-                            Console.Write("Downloading " + unarchivedPatchKeyList.Count + " unarchived patch files..");
-
-                            var unarchivedPatchFileTasks = new List<Task>();
-                            foreach (var entry in unarchivedPatchKeyList)
+                            if (unarchivedPatchKeyList.Count > 0)
                             {
-                                await downloadThrottler.WaitAsync();
-                                unarchivedPatchFileTasks.Add(
-                                    Task.Run(async () =>
-                                    {
-                                        try
-                                        {
-                                            await cdn.Get(cdns.entries[0].path + "/patch/" + entry[0] + entry[1] + "/" + entry[2] + entry[3] + "/" + entry, false);
-                                        }
-                                        finally
-                                        {
-                                            downloadThrottler.Release();
-                                        }
-                                    }));
-                            }
-                            await Task.WhenAll(unarchivedPatchFileTasks);
+                                Console.Write("Downloading " + unarchivedPatchKeyList.Count + " unarchived patch files..");
 
-                            Console.Write("..done\n");
+                                var unarchivedPatchFileTasks = new List<Task>();
+                                foreach (var entry in unarchivedPatchKeyList)
+                                {
+                                    await downloadThrottler.WaitAsync();
+                                    unarchivedPatchFileTasks.Add(
+                                        Task.Run(async () =>
+                                        {
+                                            try
+                                            {
+                                                await cdn.Get(cdns.entries[0].path + "/patch/" + entry[0] + entry[1] + "/" + entry[2] + entry[3] + "/" + entry, false);
+                                            }
+                                            finally
+                                            {
+                                                downloadThrottler.Release();
+                                            }
+                                        }));
+                                }
+                                await Task.WhenAll(unarchivedPatchFileTasks);
+
+                                Console.Write("..done\n");
+                            }
                         }
                     }
                 }
