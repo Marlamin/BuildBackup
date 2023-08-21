@@ -11,7 +11,7 @@ namespace BuildBackup
         public HttpClient client;
         public string cacheDir;
         public List<string> cdnList;
-        
+
         public async Task<uint> GetRemoteFileSize(string path)
         {
             path = path.ToLower();
@@ -150,9 +150,17 @@ namespace BuildBackup
 
             if (returnstream)
             {
-                if (path.Contains("tpr/wowdev/"))
+                if (path.Contains("tpr/wowdev"))
                 {
                     return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), "wowdevalpha"));
+                }
+                else if (path.Contains("tpr/fenrisdev"))
+                {
+                    return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), "fenrisdev"));
+                }
+                else if (path.Contains("tpr/fenrisevent"))
+                {
+                    return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), "fenrise"));
                 }
                 else
                 {
