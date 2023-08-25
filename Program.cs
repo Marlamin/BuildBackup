@@ -1401,16 +1401,9 @@ namespace BuildBackup
 
                     Console.WriteLine("Loaded " + versions.entries.Count() + " versions");
 
-                    if (!string.IsNullOrEmpty(versions.entries[0].productConfig))
-                    {
-                        productConfig = GetProductConfig(cdns.entries[0].configPath + "/", versions.entries[0].productConfig);
-                    }
+                   
 
-                    // Retrieve all buildconfigs
-                    for (var i = 0; i < versions.entries.Count(); i++)
-                    {
-                        GetBuildConfig(cdns.entries[0].path + "/", versions.entries[i].buildConfig);
-                    }
+                    
 
                     // Retrieve keyring
                     if (!string.IsNullOrEmpty(versions.entries[0].keyRing))
@@ -1429,6 +1422,20 @@ namespace BuildBackup
                 if (cdns.entries == null || cdns.entries.Count() == 0) { Console.WriteLine("Invalid CDNs file for " + program + ", skipping!"); continue; }
 
                 Console.WriteLine("Loaded " + cdns.entries.Count() + " cdns");
+
+                if (versions.entries != null)
+                {
+                    if (!string.IsNullOrEmpty(versions.entries[0].productConfig))
+                    {
+                        productConfig = GetProductConfig(cdns.entries[0].configPath + "/", versions.entries[0].productConfig);
+                    }
+
+                    // Retrieve all buildconfigs
+                    for (var i = 0; i < versions.entries.Count(); i++)
+                    {
+                        GetBuildConfig(cdns.entries[0].path + "/", versions.entries[i].buildConfig);
+                    }
+                }
 
                 var decryptionKeyName = "";
 
