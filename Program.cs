@@ -799,7 +799,7 @@ namespace BuildBackup
                         }
                     }
 
-                    Console.WriteLine("Looking up in root..");
+                    Console.WriteLine("Looking up " + nameList.Count + " named files and " + fdidList.Count + " unnamed files in root..");
 
                     root = GetRoot("tpr/" + product, rootHash, true);
 
@@ -808,55 +808,50 @@ namespace BuildBackup
 
                     foreach (var entry in root.entriesFDID)
                     {
-                        foreach (var subentry in entry.Value)
+                        var subentry = entry.Value.Where(x => x.contentFlags.HasFlag(ContentFlags.LowViolence) == false && x.localeFlags.HasFlag(LocaleFlags.All_WoW) || x.localeFlags.HasFlag(LocaleFlags.enUS)).FirstOrDefault();
+
+                        if (subentry.md5 == null)
+                            subentry = entry.Value.First();
+
+                        if (args[0] == "extractfilesbyfnamelist")
                         {
-                            if (subentry.contentFlags.HasFlag(ContentFlags.LowViolence))
-                                continue;
-
-                            if (!subentry.localeFlags.HasFlag(LocaleFlags.All_WoW) && !subentry.localeFlags.HasFlag(LocaleFlags.enUS))
-                                continue;
-
-                            if (args[0] == "extractfilesbyfnamelist")
+                            if (nameList.ContainsKey(subentry.lookup))
                             {
-                                if (nameList.ContainsKey(subentry.lookup))
-                                {
-                                    var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
+                                var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
 
-                                    if (encodingList.ContainsKey(cleanContentHash))
-                                    {
-                                        encodingList[cleanContentHash].Add(nameList[subentry.lookup]);
-                                    }
-                                    else
-                                    {
-                                        encodingList.Add(cleanContentHash, new List<string>() { nameList[subentry.lookup] });
-                                    }
+                                if (encodingList.ContainsKey(cleanContentHash))
+                                {
+                                    encodingList[cleanContentHash].Add(nameList[subentry.lookup]);
+                                }
+                                else
+                                {
+                                    encodingList.Add(cleanContentHash, new List<string>() { nameList[subentry.lookup] });
                                 }
                             }
-                            else if (args[0] == "extractfilesbyfdidlist")
+                        }
+                        else if (args[0] == "extractfilesbyfdidlist")
+                        {
+                            if (fdidList.ContainsKey(subentry.fileDataID))
                             {
-                                if (fdidList.ContainsKey(subentry.fileDataID))
+                                var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
+
+                                if (encodingList.ContainsKey(cleanContentHash))
                                 {
-                                    var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
-
-                                    if (encodingList.ContainsKey(cleanContentHash))
-                                    {
-                                        encodingList[cleanContentHash].Add(fdidList[subentry.fileDataID]);
-                                    }
-                                    else
-                                    {
-                                        encodingList.Add(cleanContentHash, new List<string>() { fdidList[subentry.fileDataID] });
-                                    }
-
-                                    chashList.TryAdd(subentry.fileDataID, cleanContentHash);
+                                    encodingList[cleanContentHash].Add(fdidList[subentry.fileDataID]);
                                 }
+                                else
+                                {
+                                    encodingList.Add(cleanContentHash, new List<string>() { fdidList[subentry.fileDataID] });
+                                }
+
+                                chashList.TryAdd(subentry.fileDataID, cleanContentHash);
                             }
-                            continue;
                         }
                     }
 
                     var fileList = new Dictionary<string, List<string>>();
 
-                    Console.WriteLine("Looking up in encoding..");
+                    Console.WriteLine("Looking up " + encodingList.Count + " files in encoding..");
                     foreach (var encodingEntry in encoding.aEntries)
                     {
                         string target = "";
@@ -1398,10 +1393,6 @@ namespace BuildBackup
 
                     Console.WriteLine("Loaded " + versions.entries.Count() + " versions");
 
-                   
-
-                    
-
                     // Retrieve keyring
                     if (!string.IsNullOrEmpty(versions.entries[0].keyRing))
                         await cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
@@ -1519,7 +1510,6 @@ namespace BuildBackup
                 {
                     Console.WriteLine("Failed to download patch files: " + e.Message);
                 }
-
 
                 Console.Write("..done\n");
 
@@ -1692,7 +1682,6 @@ namespace BuildBackup
                         Console.Write("Parsing file index..");
                         fileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.fileIndex);
                         Console.Write("..done\n");
-
                     }
 
                     if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
@@ -2688,14 +2677,14 @@ namespace BuildBackup
                     totalFiles = bin.ReadUInt32();
                     namedFiles = bin.ReadUInt32();
 
-                    if(totalFiles < 1000)
+                    if (totalFiles < 1000)
                     {
                         // Post 10.1.7
                         totalFiles = bin.ReadUInt32();
                         namedFiles = bin.ReadUInt32();
                         bin.ReadUInt32();
                     }
-                    
+
                     newRoot = true;
                 }
                 else

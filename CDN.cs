@@ -87,7 +87,7 @@ namespace BuildBackup
                     var cleanName = uri.AbsolutePath;
 
                     if (verbose)
-                        Console.WriteLine("Downloading " + path);
+                        Console.WriteLine("Downloading " + path + " from " + cdn);
 
                     try
                     {
