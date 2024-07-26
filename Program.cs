@@ -1639,7 +1639,14 @@ namespace BuildBackup
                     if (cdnConfig.archives != null)
                     {
                         Console.Write("Loading " + cdnConfig.archives.Count() + " indexes..");
-                        GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
+                        try
+                        {
+                            GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("Failed to get indexes: " + e.Message);
+                        }
                         Console.Write("..done\n");
 
                         if (fullDownload)
@@ -1651,8 +1658,16 @@ namespace BuildBackup
                                 var archive = cdnConfig.archives[i];
                                 if (!archiveSizes.ContainsKey(archive))
                                 {
-                                    var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
-                                    archiveSizes.Add(archive, remoteFileSize);
+                                    try
+                                    {
+                                        var remoteFileSize = await cdn.GetRemoteFileSize(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive);
+                                        archiveSizes.Add(archive, remoteFileSize);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine("Failed to get remote file size for " + archive + ": " + e.Message);
+                                        archiveSizes.Add(archive, 0);
+                                    }
                                 }
                             }
 
@@ -1692,7 +1707,14 @@ namespace BuildBackup
                                         }
                                     }));
                             }
-                            await Task.WhenAll(archiveTasks);
+                            try
+                            {
+                                await Task.WhenAll(archiveTasks);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("Failed to download archives: " + e.Message);
+                            }
                             Console.Write("..done\n");
                         }
                         else
@@ -1710,11 +1732,11 @@ namespace BuildBackup
 
                 if (buildConfig.encoding != null && buildConfig.encoding.Length == 2)
                 {
-                    if (finishedEncodings.Contains(buildConfig.encoding[1]))
-                    {
-                        Console.WriteLine("Encoding file " + buildConfig.encoding[1] + " already loaded, skipping rest of product loading..");
-                        continue;
-                    }
+                    //if (finishedEncodings.Contains(buildConfig.encoding[1]))
+                    //{
+                    //    Console.WriteLine("Encoding file " + buildConfig.encoding[1] + " already loaded, skipping rest of product loading..");
+                    //    continue;
+                    //}
 
                     Console.Write("Loading encoding..");
 
@@ -1728,14 +1750,13 @@ namespace BuildBackup
                         {
                             encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], int.Parse(buildConfig.encodingSize[1]));
                         }
+
+                        finishedEncodings.Add(buildConfig.encoding[1]);
                     }
                     catch (Exception e)
                     {
                         Console.WriteLine("Fatal error occurred during encoding parsing: " + e.Message);
-                        continue;
                     }
-
-                    finishedEncodings.Add(buildConfig.encoding[1]);
 
                     if (buildConfig.install.Length == 2)
                     {
@@ -1747,34 +1768,77 @@ namespace BuildBackup
                         downloadKey = buildConfig.download[1];
                     }
 
-                    foreach (var entry in encoding.aEntries)
+                    if (encoding.aEntries != null)
                     {
-                        if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
-                        if (downloadKey == "" && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0].ToLower(); }
-                        if (installKey == "" && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0].ToLower(); }
-                        if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
+                        foreach (var entry in encoding.aEntries)
+                        {
+                            if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
+                            if (downloadKey == "" && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0].ToLower(); }
+                            if (installKey == "" && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0].ToLower(); }
+                            if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
+                        }
                     }
 
                     Console.Write("..done\n");
                 }
 
 
-                if (program == "wow" || program == "wowt" || program == "wow_beta" || program == "wow_classic" || program == "wow_classic_ptr") // Only these are supported right now
+                if (program.StartsWith("wow")) // Only these are supported right now
                 {
                     Console.Write("Loading root..");
-                    if (rootKey == "") { Console.WriteLine("Unable to find root key in encoding!"); } else { root = GetRoot(cdns.entries[0].path + "/", rootKey); }
+                    if (rootKey == "")
+                    {
+                        Console.WriteLine("Unable to find root key in encoding!");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            root = GetRoot(cdns.entries[0].path + "/", rootKey);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("Error loading root: " + e.Message);
+                        }
+                    }
                     Console.Write("..done\n");
 
                     Console.Write("Loading download..");
-                    if (downloadKey == "") { Console.WriteLine("Unable to find download key in encoding!"); } else { download = GetDownload(cdns.entries[0].path + "/", downloadKey); }
+                    if (downloadKey == "")
+                    {
+                        Console.WriteLine("Unable to find download key in encoding!");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            download = GetDownload(cdns.entries[0].path + "/", downloadKey);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("Error loading download: " + e.Message);
+                        }
+                    }
                     Console.Write("..done\n");
 
                     Console.Write("Loading install..");
-                    Console.Write("..done\n");
-
                     try
                     {
-                        if (installKey == "") { Console.WriteLine("Unable to find install key in encoding!"); } else { install = GetInstall(cdns.entries[0].path + "/", installKey); }
+                        if (installKey == "")
+                        {
+                            Console.WriteLine("Unable to find install key in encoding!");
+                        }
+                        else
+                        {
+                            try
+                            {
+                                install = GetInstall(cdns.entries[0].path + "/", installKey);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("Error loading install: " + e.Message);
+                            }
+                        }
 
                     }
                     catch (Exception e)
@@ -1782,6 +1846,8 @@ namespace BuildBackup
                         Console.WriteLine("Error loading install: " + e.Message);
                     }
                 }
+                Console.Write("..done\n");
+
 
                 if (!fullDownload)
                 {
@@ -1799,11 +1865,18 @@ namespace BuildBackup
                     if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
                     {
                         Console.Write("Parsing file index..");
-                        fileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.fileIndex);
+                        try
+                        {
+                            fileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.fileIndex);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("Unable to get file index: " + e.Message);
+                        }
                         Console.Write("..done\n");
                     }
 
-                    if (!string.IsNullOrEmpty(cdnConfig.fileIndex))
+                    if (!string.IsNullOrEmpty(cdnConfig.fileIndex) && fileIndexList.Count > 0)
                     {
                         Console.Write("Downloading " + fileIndexList.Count + " unarchived files from file index..");
 
@@ -1835,11 +1908,18 @@ namespace BuildBackup
                     if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex))
                     {
                         Console.Write("Parsing patch file index..");
-                        patchFileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.patchFileIndex, "patch");
+                        try
+                        {
+                            patchFileIndexList = ParseIndex(cdns.entries[0].path + "/", cdnConfig.patchFileIndex, "patch");
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("Error retrieving patch file index: " + e.Message);
+                        }
                         Console.Write("..done\n");
                     }
 
-                    if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex) && SettingsManager.downloadPatchFiles)
+                    if (!string.IsNullOrEmpty(cdnConfig.patchFileIndex) && SettingsManager.downloadPatchFiles && patchFileIndexList.Count > 0)
                     {
                         Console.Write("Downloading " + patchFileIndexList.Count + " unarchived patch files from patch file index..");
 
@@ -1885,6 +1965,10 @@ namespace BuildBackup
                                             cdns.entries[0].path + "/patch/" + archive[0] + archive[1] + "/" +
                                             archive[2] + archive[3] + "/" + archive, false, false, 0, true);
                                     }
+                                    catch (Exception e)
+                                    {
+                                        Console.WriteLine("Failed to download patch archive: " + e.Message);
+                                    }
                                     finally
                                     {
                                         downloadThrottler.Release();
@@ -1916,6 +2000,10 @@ namespace BuildBackup
                             try
                             {
                                 await cdn.Get(cdns.entries[0].path + "/data/" + entry.Key[0] + entry.Key[1] + "/" + entry.Key[2] + entry.Key[3] + "/" + entry.Key, false);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine("Unable to download unarchived file: " + e.Message);
                             }
                             finally
                             {
@@ -2670,51 +2758,58 @@ namespace BuildBackup
         {
             Parallel.ForEach(archives, (archive, state, i) =>
             {
-                byte[] indexContent = cdn.Get(url + "/data/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
-
-                using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
+                try
                 {
-                    int indexEntries = indexContent.Length / 4096;
+                    byte[] indexContent = cdn.Get(url + "/data/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
 
-                    for (var b = 0; b < indexEntries; b++)
+                    using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
                     {
-                        for (var bi = 0; bi < 170; bi++)
+                        int indexEntries = indexContent.Length / 4096;
+
+                        for (var b = 0; b < indexEntries; b++)
                         {
-                            var headerHash = Convert.ToHexString(bin.ReadBytes(16));
-
-                            var entry = new IndexEntry()
+                            for (var bi = 0; bi < 170; bi++)
                             {
-                                index = (short)i,
-                                size = bin.ReadUInt32(true),
-                                offset = bin.ReadUInt32(true)
-                            };
+                                var headerHash = Convert.ToHexString(bin.ReadBytes(16));
 
-                            cacheLock.EnterUpgradeableReadLock();
-                            try
-                            {
-                                if (!indexDictionary.ContainsKey(headerHash))
+                                var entry = new IndexEntry()
                                 {
-                                    cacheLock.EnterWriteLock();
-                                    try
+                                    index = (short)i,
+                                    size = bin.ReadUInt32(true),
+                                    offset = bin.ReadUInt32(true)
+                                };
+
+                                cacheLock.EnterUpgradeableReadLock();
+                                try
+                                {
+                                    if (!indexDictionary.ContainsKey(headerHash))
                                     {
-                                        if (!indexDictionary.TryAdd(headerHash, entry))
+                                        cacheLock.EnterWriteLock();
+                                        try
                                         {
-                                            Console.WriteLine("Duplicate index entry for " + headerHash + " " + "(index: " + archives[i] + ", size: " + entry.size + ", offset: " + entry.offset);
+                                            if (!indexDictionary.TryAdd(headerHash, entry))
+                                            {
+                                                Console.WriteLine("Duplicate index entry for " + headerHash + " " + "(index: " + archives[i] + ", size: " + entry.size + ", offset: " + entry.offset);
+                                            }
+                                        }
+                                        finally
+                                        {
+                                            cacheLock.ExitWriteLock();
                                         }
                                     }
-                                    finally
-                                    {
-                                        cacheLock.ExitWriteLock();
-                                    }
+                                }
+                                finally
+                                {
+                                    cacheLock.ExitUpgradeableReadLock();
                                 }
                             }
-                            finally
-                            {
-                                cacheLock.ExitUpgradeableReadLock();
-                            }
+                            bin.ReadBytes(16);
                         }
-                        bin.ReadBytes(16);
                     }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error retrieving index: " + e.Message);
                 }
             });
         }
@@ -2722,52 +2817,60 @@ namespace BuildBackup
         {
             Parallel.ForEach(archives, (archive, state, i) =>
             {
-                byte[] indexContent = cdn.Get(url + "/patch/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
-
-                using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
+                try
                 {
-                    int indexEntries = indexContent.Length / 4096;
+                    byte[] indexContent = cdn.Get(url + "/patch/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
 
-                    for (var b = 0; b < indexEntries; b++)
+                    using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
                     {
-                        for (var bi = 0; bi < 170; bi++)
+                        int indexEntries = indexContent.Length / 4096;
+
+                        for (var b = 0; b < indexEntries; b++)
                         {
-                            var headerHash = Convert.ToHexString(bin.ReadBytes(16));
-
-                            var entry = new IndexEntry()
+                            for (var bi = 0; bi < 170; bi++)
                             {
-                                index = (short)i,
-                                size = bin.ReadUInt32(true),
-                                offset = bin.ReadUInt32(true)
-                            };
+                                var headerHash = Convert.ToHexString(bin.ReadBytes(16));
 
-                            cacheLock.EnterUpgradeableReadLock();
-                            try
-                            {
-                                if (!patchIndexDictionary.ContainsKey(headerHash))
+                                var entry = new IndexEntry()
                                 {
-                                    cacheLock.EnterWriteLock();
-                                    try
+                                    index = (short)i,
+                                    size = bin.ReadUInt32(true),
+                                    offset = bin.ReadUInt32(true)
+                                };
+
+                                cacheLock.EnterUpgradeableReadLock();
+                                try
+                                {
+                                    if (!patchIndexDictionary.ContainsKey(headerHash))
                                     {
-                                        if (!patchIndexDictionary.TryAdd(headerHash, entry))
+                                        cacheLock.EnterWriteLock();
+                                        try
                                         {
-                                            Console.WriteLine("Duplicate patch index entry for " + headerHash + " " + "(index: " + archives[i] + ", size: " + entry.size + ", offset: " + entry.offset);
+                                            if (!patchIndexDictionary.TryAdd(headerHash, entry))
+                                            {
+                                                Console.WriteLine("Duplicate patch index entry for " + headerHash + " " + "(index: " + archives[i] + ", size: " + entry.size + ", offset: " + entry.offset);
+                                            }
+                                        }
+                                        finally
+                                        {
+                                            cacheLock.ExitWriteLock();
                                         }
                                     }
-                                    finally
-                                    {
-                                        cacheLock.ExitWriteLock();
-                                    }
+                                }
+                                finally
+                                {
+                                    cacheLock.ExitUpgradeableReadLock();
                                 }
                             }
-                            finally
-                            {
-                                cacheLock.ExitUpgradeableReadLock();
-                            }
+                            bin.ReadBytes(16);
                         }
-                        bin.ReadBytes(16);
                     }
                 }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Unable to retrieve patch index: " + e.Message);
+                }
+
             });
         }
 
