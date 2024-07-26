@@ -739,7 +739,6 @@ namespace BuildBackup
 
                     Environment.Exit(0);
                 }
-
                 if (args[0] == "extractfilesbyfnamelist" || args[0] == "extractfilesbyfdidlist")
                 {
                     if (args.Length < 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list");
@@ -1257,7 +1256,7 @@ namespace BuildBackup
                         throw new Exception("unk encryptedproduct");
                     }
 
-                    foreach (var file in allFiles)
+                    Parallel.ForEach(allFiles, file =>
                     {
                         //if (!file.EndsWith(".index"))
                         //    continue;
@@ -1276,7 +1275,7 @@ namespace BuildBackup
                             else
                             {
                                 fileCount++;
-                                continue;
+                                return;
                             }
                         }
 
@@ -1294,7 +1293,7 @@ namespace BuildBackup
                         }
 
                         fileCount++;
-                    }
+                    });
 
                     Environment.Exit(0);
                 }
@@ -1315,6 +1314,66 @@ namespace BuildBackup
 
                     Directory.CreateDirectory(Path.GetDirectoryName(args[2]));
                     File.WriteAllBytes(args[2], fileBytes);
+                    Environment.Exit(0);
+                }
+                if (args[0] == "dumprawinstall")
+                {
+                    var install = new InstallFile();
+
+                    byte[] content = File.ReadAllBytes(args[1]);
+
+
+                    using (BinaryReader bin = new BinaryReader(new MemoryStream(BLTE.Parse(content))))
+                    {
+                        if (Encoding.UTF8.GetString(bin.ReadBytes(2)) != "IN") { throw new Exception("Error while parsing install file. Did BLTE header size change?"); }
+
+                        bin.ReadByte();
+
+                        install.hashSize = bin.ReadByte();
+                        if (install.hashSize != 16) throw new Exception("Unsupported install hash size!");
+
+                        install.numTags = bin.ReadUInt16(true);
+                        install.numEntries = bin.ReadUInt32(true);
+
+                        int bytesPerTag = ((int)install.numEntries + 7) / 8;
+
+                        install.tags = new InstallTagEntry[install.numTags];
+
+                        for (var i = 0; i < install.numTags; i++)
+                        {
+                            install.tags[i].name = bin.ReadCString();
+                            install.tags[i].type = bin.ReadUInt16(true);
+
+                            var filebits = bin.ReadBytes(bytesPerTag);
+
+                            for (int j = 0; j < bytesPerTag; j++)
+                                filebits[j] = (byte)((filebits[j] * 0x0202020202 & 0x010884422010) % 1023);
+
+                            install.tags[i].files = new BitArray(filebits);
+                        }
+
+                        install.entries = new InstallFileEntry[install.numEntries];
+
+                        for (var i = 0; i < install.numEntries; i++)
+                        {
+                            install.entries[i].name = bin.ReadCString();
+                            install.entries[i].contentHash = bin.ReadBytes(install.hashSize);
+                            install.entries[i].size = bin.ReadUInt32(true);
+                            install.entries[i].tags = new List<string>();
+                            for (var j = 0; j < install.numTags; j++)
+                            {
+                                if (install.tags[j].files[i] == true)
+                                {
+                                    install.entries[i].tags.Add(install.tags[j].type + "=" + install.tags[j].name);
+                                }
+                            }
+                        }
+                    }
+
+                    foreach (var entry in install.entries)
+                    {
+                        Console.WriteLine(entry.name + " (size: " + entry.size + ", md5: " + Convert.ToHexString(entry.contentHash).ToLower() + ", tags: " + string.Join(",", entry.tags) + ")");
+                    }
                     Environment.Exit(0);
                 }
                 if (args[0] == "dumpindex")
@@ -1341,6 +1400,66 @@ namespace BuildBackup
                 if (args[0] == "partialdl")
                 {
                     fullDownload = false;
+                }
+                if (args[0] == "dumparchive")
+                {
+                    var indexContent = File.ReadAllBytes(args[1]);
+                    using (var ms = new MemoryStream(indexContent))
+                    using (BinaryReader bin = new BinaryReader(ms))
+                    {
+                        int indexEntries = indexContent.Length / 4096;
+
+                        for (var b = 0; b < indexEntries; b++)
+                        {
+                            for (var bi = 0; bi < 170; bi++)
+                            {
+                                var headerHash = Convert.ToHexString(bin.ReadBytes(16));
+
+                                var entry = new IndexEntry()
+                                {
+                                    index = 0,
+                                    size = bin.ReadUInt32(true),
+                                    offset = bin.ReadUInt32(true)
+                                };
+                                if (!indexDictionary.ContainsKey(headerHash) && headerHash != "00000000000000000000000000000000")
+                                {
+                                    if (!indexDictionary.TryAdd(headerHash, entry))
+                                    {
+                                        Console.WriteLine("Duplicate index entry for " + headerHash + " " + "(size: " + entry.size + ", offset: " + entry.offset);
+                                    }
+                                }
+                            }
+                            bin.ReadBytes(16);
+                        }
+                    }
+
+                    var outPath = Path.Combine(Path.GetDirectoryName(args[1]), Path.GetFileNameWithoutExtension(args[1]) + "_extract");
+                    if (!Directory.Exists(outPath))
+                        Directory.CreateDirectory(outPath);
+
+                    var archivePath = Path.Combine(Path.GetDirectoryName(args[1]), Path.GetFileNameWithoutExtension(args[1]));
+                    using (var ms = new MemoryStream(File.ReadAllBytes(archivePath)))
+                    using (var bin = new BinaryReader(ms))
+                    {
+                        foreach (var entry in indexDictionary)
+                        {
+                            bin.BaseStream.Seek(entry.Value.offset, SeekOrigin.Begin);
+                            var data = BLTE.Parse(bin.ReadBytes((int)entry.Value.size));
+                            var outFilePath = Path.Combine(outPath, entry.Key);
+                            if (data[0] == 'B' && data[1] == 'L' && data[2] == 'P' && data[3] == '2')
+                                outFilePath += ".blp";
+                            else if (data[0] == 'M' && data[1] == 'Z')
+                                outFilePath += ".exe";
+                            else if (data[0] == 'W' && data[1] == 'D' && data[2] == 'C')
+                                outFilePath += ".db2";
+                            else if (data[0] == 'M' && data[1] == '3')
+                                outFilePath += ".m3lib";
+
+                            File.WriteAllBytes(outFilePath, data);
+                        }
+                    }
+
+                    return;
                 }
             }
 
