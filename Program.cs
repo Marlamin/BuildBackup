@@ -53,14 +53,14 @@ namespace BuildBackup
             cdn.client.Timeout = new TimeSpan(0, 5, 0);
             cdn.cdnList = new List<string> {
                 "blzddist1-a.akamaihd.net",     // Akamai first
-                //"level3.blizzard.com",        // Level3
-                //"us.cdn.blizzard.com",        // Official US CDN
-                //"eu.cdn.blizzard.com",        // Official EU CDN
+                "level3.blizzard.com",        // Level3
+                "us.cdn.blizzard.com",        // Official US CDN
+                "eu.cdn.blizzard.com",        // Official EU CDN
                 //"kr.cdn.blizzard.com",        // Official KR CDN
                 "cdn.blizzard.com",             // Official regionless CDN
                 //"blizzard.nefficient.co.kr",  // Korea 
-                "archive.wow.tools",            // wow.tools archive
-                "tact.mirror.reliquaryhq.com",  // ReliquaryHQ archive
+                //"archive.wow.tools",            // wow.tools archive
+                //"tact.mirror.reliquaryhq.com",  // ReliquaryHQ archive
             };
 
             // Check if cache/backup directory exists
