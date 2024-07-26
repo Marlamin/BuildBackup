@@ -1378,6 +1378,15 @@ namespace BuildBackup
 
                 Console.WriteLine("Using program " + program);
 
+                try
+                {
+                    cdns = GetCDNs(program);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error parsing CDNs: " + e.Message);
+                }
+
                 if (!overrideVersions)
                 {
                     try
@@ -1396,15 +1405,6 @@ namespace BuildBackup
                     // Retrieve keyring
                     if (!string.IsNullOrEmpty(versions.entries[0].keyRing))
                         await cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
-                }
-
-                try
-                {
-                    cdns = GetCDNs(program);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error parsing CDNs: " + e.Message);
                 }
 
                 if (cdns.entries == null || cdns.entries.Count() == 0) { Console.WriteLine("Invalid CDNs file for " + program + ", skipping!"); continue; }
