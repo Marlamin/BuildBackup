@@ -2515,7 +2515,15 @@ namespace BuildBackup
 
             try
             {
-                content = Encoding.UTF8.GetString(cdn.Get(url + "/config/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result);
+                if (!File.Exists("fakebuildconfig"))
+                {
+                    content = Encoding.UTF8.GetString(cdn.Get(url + "/config/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result);
+                }
+                else
+                {
+                    Console.WriteLine("!!!!!!!!! LOADING FAKE BUILDCONFIG");
+                    content = File.ReadAllText("fakebuildconfig").Replace("\r", "");
+                }
             }
             catch (Exception e)
             {
