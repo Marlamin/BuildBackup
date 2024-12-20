@@ -2890,6 +2890,10 @@ namespace BuildBackup
             uint totalFiles = 0;
             uint namedFiles = 0;
             var newRoot = false;
+
+            uint dfHeaderSize = 0;
+            uint dfVersion = 0;
+
             using (BinaryReader bin = new BinaryReader(new MemoryStream(BLTE.Parse(content))))
             {
                 var header = bin.ReadUInt32();
@@ -2899,12 +2903,19 @@ namespace BuildBackup
                     totalFiles = bin.ReadUInt32();
                     namedFiles = bin.ReadUInt32();
 
-                    if (totalFiles < 1000)
+                    if (namedFiles == 1 || namedFiles == 2)
                     {
                         // Post 10.1.7
-                        totalFiles = bin.ReadUInt32();
-                        namedFiles = bin.ReadUInt32();
-                        bin.ReadUInt32();
+                        dfHeaderSize = totalFiles;
+                        dfVersion = namedFiles;
+
+                        if (dfVersion == 1 || dfVersion == 2)
+                        {
+                            totalFiles = bin.ReadUInt32();
+                            namedFiles = bin.ReadUInt32();
+                        }
+
+                        bin.BaseStream.Position = dfHeaderSize;
                     }
 
                     newRoot = true;
@@ -2918,9 +2929,24 @@ namespace BuildBackup
 
                 while (bin.BaseStream.Position < bin.BaseStream.Length)
                 {
-                    var count = bin.ReadUInt32();
-                    var contentFlags = (ContentFlags)bin.ReadUInt32();
-                    var localeFlags = (LocaleFlags)bin.ReadUInt32();
+                    uint count = 0;
+                    ContentFlags contentFlags = 0;
+                    LocaleFlags localeFlags = 0;
+
+                    if (dfVersion == 2)
+                    {
+                        count = bin.ReadUInt32();
+                        localeFlags = (LocaleFlags)bin.ReadUInt32();
+                        var unkFlags = bin.ReadUInt32();
+                        contentFlags = (ContentFlags)bin.ReadUInt32();
+                        var unkByte = bin.ReadByte();
+                    }
+                    else
+                    {
+                        count = bin.ReadUInt32();
+                        contentFlags = (ContentFlags)bin.ReadUInt32();
+                        localeFlags = (LocaleFlags)bin.ReadUInt32();
+                    }
 
                     //Console.WriteLine("[Block " + blockCount + "] " + count + " entries. Content flags: " + contentFlags.ToString() + ", Locale flags: " + localeFlags.ToString());
                     var entries = new RootEntry[count];
