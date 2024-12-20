@@ -59,7 +59,7 @@ namespace BuildBackup
                 //"kr.cdn.blizzard.com",        // Official KR CDN
                 "cdn.blizzard.com",             // Official regionless CDN
                 //"blizzard.nefficient.co.kr",  // Korea 
-                //"archive.wow.tools",            // wow.tools archive
+                "archive.wow.tools",            // wow.tools archive
                 //"tact.mirror.reliquaryhq.com",  // ReliquaryHQ archive
             };
 
