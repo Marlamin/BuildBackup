@@ -13,7 +13,7 @@ namespace BuildBackup
 {
     class Program
     {
-        private static readonly Uri baseUrl = new Uri("http://us.patch.battle.net:1119/");
+        private static readonly Uri baseUrl = new Uri("https://us.version.battle.net/");
 
         private static string[] checkPrograms;
         private static string[] backupPrograms;
@@ -2218,7 +2218,7 @@ namespace BuildBackup
 
             if (!SettingsManager.useRibbit)
             {
-                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "versions")).Result)
+                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "versions")).Result)
                 {
                     if (response.IsSuccessStatusCode)
                     {
@@ -2247,7 +2247,7 @@ namespace BuildBackup
                     Console.WriteLine("Error during retrieving Ribbit versions: " + e.Message + ", trying HTTP..");
                     try
                     {
-                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "versions")).Result)
+                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "versions")).Result)
                         {
                             if (response.IsSuccessStatusCode)
                             {
@@ -2354,7 +2354,7 @@ namespace BuildBackup
 
             if (!SettingsManager.useRibbit)
             {
-                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "cdns")).Result)
+                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "cdns")).Result)
                 {
                     if (response.IsSuccessStatusCode)
                     {
@@ -2384,7 +2384,7 @@ namespace BuildBackup
                     Console.WriteLine("Error during retrieving Ribbit cdns: " + e.Message + ", trying HTTP..");
                     try
                     {
-                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + program + "/" + "cdns")).Result)
+                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "cdns")).Result)
                         {
                             if (response.IsSuccessStatusCode)
                             {
