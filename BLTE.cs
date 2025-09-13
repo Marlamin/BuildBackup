@@ -4,11 +4,13 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
 
 namespace BuildBackup
 {
     public static class BLTE
     {
+        private static readonly Lock keyLoad = new();
         public static byte[] Parse(byte[] content)
         {
             using (var bin = new BinaryReader(new MemoryStream(content)))
@@ -117,23 +119,7 @@ namespace BuildBackup
                     throw new Exception("Unsupported mode " + data[0].ToString("X") + "!");
             }
         }
-        private static string ReturnEncryptionKeyName(byte[] data)
-        {
-            byte keyNameSize = data[0];
 
-            if (keyNameSize == 0 || keyNameSize != 8)
-            {
-                Console.WriteLine(keyNameSize.ToString());
-                throw new Exception("keyNameSize == 0 || keyNameSize != 8");
-            }
-
-            byte[] keyNameBytes = new byte[keyNameSize];
-            Array.Copy(data, 1, keyNameBytes, 0, keyNameSize);
-
-            Array.Reverse(keyNameBytes);
-
-            return BitConverter.ToString(keyNameBytes).Replace("-", "");
-        }
         private static byte[] Decrypt(byte[] data, int index)
         {
             byte keyNameSize = data[1];
@@ -176,10 +162,7 @@ namespace BuildBackup
                 IV[i] ^= (byte)((index >> shift) & 0xFF);
             }
 
-            byte[] key = KeyService.GetKey(keyName);
-
-            if (key == null)
-                throw new KeyNotFoundException("Unknown keyname " + keyName.ToString("X16"));
+            byte[] key = KeyService.GetKey(keyName) ?? throw new KeyNotFoundException("Unknown keyname " + keyName.ToString("X16"));
 
             if (encType == 'S')
             {
@@ -196,22 +179,24 @@ namespace BuildBackup
 
         public static byte[] DecryptFile(string name, byte[] data, string decryptionKeyName)
         {
-            byte[] key;
-
-            if (!Program.cachedArmadilloKeys.TryGetValue(decryptionKeyName, out key))
+            if (!Program.cachedArmadilloKeys.TryGetValue(decryptionKeyName, out byte[] key))
             {
-                if (!File.Exists(decryptionKeyName + ".ak"))
+                lock (keyLoad)
                 {
-                    key = new byte[16];
-                }
-                else
-                {
-                    using (BinaryReader reader = new BinaryReader(new FileStream(decryptionKeyName + ".ak", FileMode.Open)))
+                    if (!File.Exists(decryptionKeyName + ".ak"))
                     {
-                        key = reader.ReadBytes(16);
+                        key = new byte[16];
+                        throw new Exception();
                     }
+                    else
+                    {
+                        using (BinaryReader reader = new(new FileStream(decryptionKeyName + ".ak", FileMode.Open)))
+                        {
+                            key = reader.ReadBytes(16);
+                        }
 
-                    Program.cachedArmadilloKeys.Add(decryptionKeyName, key);
+                        Program.cachedArmadilloKeys.TryAdd(decryptionKeyName, key);
+                    }
                 }
             }
 
@@ -220,7 +205,7 @@ namespace BuildBackup
             Array.Copy(IV, 8, IV, 0, 8);
             Array.Resize(ref IV, 8);
 
-            using (Salsa20 salsa = new Salsa20())
+            using (Salsa20 salsa = new())
             {
                 var decryptor = salsa.CreateDecryptor(key, IV);
                 return decryptor.TransformFinalBlock(data, 0, data.Length);

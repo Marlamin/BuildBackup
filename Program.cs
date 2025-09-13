@@ -13,7 +13,7 @@ namespace BuildBackup
 {
     class Program
     {
-        private static readonly Uri baseUrl = new Uri("https://us.version.battle.net/");
+        private static readonly Uri baseUrl = new("https://us.version.battle.net/");
 
         private static string[] checkPrograms;
         private static string[] backupPrograms;
@@ -36,32 +36,36 @@ namespace BuildBackup
         private static string overrideBuildconfig;
         private static string overrideCDNconfig;
 
-        private static Dictionary<string, IndexEntry> indexDictionary = new Dictionary<string, IndexEntry>();
-        private static Dictionary<string, IndexEntry> patchIndexDictionary = new Dictionary<string, IndexEntry>();
-        private static Dictionary<string, IndexEntry> fileIndexList = new Dictionary<string, IndexEntry>();
-        private static Dictionary<string, IndexEntry> patchFileIndexList = new Dictionary<string, IndexEntry>();
-        private static ReaderWriterLockSlim cacheLock = new ReaderWriterLockSlim();
+        private static Dictionary<string, IndexEntry> indexDictionary = [];
+        private static Dictionary<string, IndexEntry> patchIndexDictionary = [];
+        private static Dictionary<string, IndexEntry> fileIndexList = [];
+        private static Dictionary<string, IndexEntry> patchFileIndexList = [];
+        private static ReaderWriterLockSlim cacheLock = new();
 
-        public static Dictionary<string, byte[]> cachedArmadilloKeys = new Dictionary<string, byte[]>();
+        public static Dictionary<string, byte[]> cachedArmadilloKeys = [];
 
-        private static CDN cdn = new CDN();
+        private static readonly CDN cdn = new();
 
         static async Task Main(string[] args)
         {
             cdn.cacheDir = SettingsManager.cacheDir;
-            cdn.client = new HttpClient();
-            cdn.client.Timeout = new TimeSpan(0, 5, 0);
-            cdn.cdnList = new List<string> {
-                "blzddist1-a.akamaihd.net",     // Akamai first
+            cdn.client = new HttpClient
+            {
+                Timeout = new TimeSpan(0, 5, 0)
+            };
+
+            cdn.cdnList = [
+                //"blzddist1-a.akamaihd.net",     // Akamai first
                 "level3.blizzard.com",        // Level3
-                "us.cdn.blizzard.com",        // Official US CDN
                 "eu.cdn.blizzard.com",        // Official EU CDN
+                "us.cdn.blizzard.com",        // Official US CDN
                 //"kr.cdn.blizzard.com",        // Official KR CDN
                 "cdn.blizzard.com",             // Official regionless CDN
                 //"blizzard.nefficient.co.kr",  // Korea 
-                "archive.wow.tools",            // wow.tools archive
+                //"cdn.arctium.tools",            // Arctium archive
+                //"casc.wago.tools",            // Wago archive
                 //"tact.mirror.reliquaryhq.com",  // ReliquaryHQ archive
-            };
+            ];
 
             // Check if cache/backup directory exists
             try
@@ -75,6 +79,7 @@ namespace BuildBackup
                 return;
             }
 
+            #region Commands
             if (args.Length > 0)
             {
                 if (args[0] == "dumpinfo")
@@ -107,14 +112,14 @@ namespace BuildBackup
                         Console.WriteLine("install = " + installKey.ToLower());
                     }
 
-                    Dictionary<string, string> hashes = new Dictionary<string, string>();
+                    Dictionary<string, string> hashes = [];
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0]; Console.WriteLine("root = " + entry.eKeys[0].ToLower()); }
-                        if (string.IsNullOrEmpty(downloadKey) && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0]; Console.WriteLine("download = " + entry.eKeys[0].ToLower()); }
-                        if (string.IsNullOrEmpty(installKey) && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0]; Console.WriteLine("install = " + entry.eKeys[0].ToLower()); }
-                        if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
+                        if (entry.cKey.Equals(buildConfig.root, StringComparison.OrdinalIgnoreCase)) { rootKey = entry.eKeys[0]; Console.WriteLine("root = " + entry.eKeys[0].ToLower()); }
+                        if (string.IsNullOrEmpty(downloadKey) && entry.cKey.Equals(buildConfig.download[0], StringComparison.OrdinalIgnoreCase)) { downloadKey = entry.eKeys[0]; Console.WriteLine("download = " + entry.eKeys[0].ToLower()); }
+                        if (string.IsNullOrEmpty(installKey) && entry.cKey.Equals(buildConfig.install[0], StringComparison.OrdinalIgnoreCase)) { installKey = entry.eKeys[0]; Console.WriteLine("install = " + entry.eKeys[0].ToLower()); }
+                        hashes.TryAdd(entry.eKeys[0], entry.cKey);
                     }
 
                     GetIndexes(cdns.entries[0].path, cdnConfig.archives);
@@ -204,7 +209,7 @@ namespace BuildBackup
                         if (entry.lookup > 0)
                         {
                             lookup = entry.lookup.ToString("x").PadLeft(16, '0');
-                            fileName = hashes.ContainsKey(entry.lookup) ? hashes[entry.lookup] : "";
+                            fileName = hashes.TryGetValue(entry.lookup, out string value) ? value : "";
                         }
 
                         var md5 = Convert.ToHexString(entry.md5).ToLower();
@@ -370,7 +375,7 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.cKey.ToLower() == args[4])
+                        if (entry.cKey.Equals(args[4], StringComparison.OrdinalIgnoreCase))
                         {
                             target = entry.eKeys[0].ToLower();
                             break;
@@ -450,7 +455,7 @@ namespace BuildBackup
 
                         foreach (var entry in encoding.aEntries)
                         {
-                            if (entry.cKey.ToLower() == contenthash.ToLower()) { target = entry.eKeys[0].ToLower(); Console.WriteLine("Found target: " + target); break; }
+                            if (entry.cKey.Equals(contenthash, StringComparison.OrdinalIgnoreCase)) { target = entry.eKeys[0].ToLower(); Console.WriteLine("Found target: " + target); break; }
                         }
 
                         if (string.IsNullOrEmpty(target))
@@ -489,7 +494,7 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.cKey.ToLower() == buildConfig.root.ToLower()) { rootHash = entry.eKeys[0].ToLower(); break; }
+                        if (entry.cKey.Equals(buildConfig.root, StringComparison.OrdinalIgnoreCase)) { rootHash = entry.eKeys[0].ToLower(); break; }
                     }
 
                     var fdidList = new List<uint>();
@@ -547,7 +552,7 @@ namespace BuildBackup
                             }
                         }
 
-                        Console.WriteLine($"Added: {addedEntries.Count()}, removed: {removedFiles.Count()}, modified: {modifiedFiles.Count()}, common: {commonEntries.Count()}");
+                        Console.WriteLine($"Added: {addedEntries.Count()}, removed: {removedFiles.Count()}, modified: {modifiedFiles.Count}, common: {commonEntries.Count()}");
 
                         fdidList.AddRange(addedFiles.Select(x => x.fileDataID));
                         fdidList.AddRange(modifiedFiles.Select(x => x.fileDataID));
@@ -575,13 +580,13 @@ namespace BuildBackup
                             {
                                 var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
 
-                                if (encodingList.ContainsKey(cleanContentHash))
+                                if (encodingList.TryGetValue(cleanContentHash, out List<string> value))
                                 {
-                                    encodingList[cleanContentHash].Add(subentry.fileDataID.ToString());
+                                    value.Add(subentry.fileDataID.ToString());
                                 }
                                 else
                                 {
-                                    encodingList.Add(cleanContentHash, new List<string>() { subentry.fileDataID.ToString() });
+                                    encodingList.Add(cleanContentHash, [subentry.fileDataID.ToString()]);
                                 }
                             }
                             continue;
@@ -601,13 +606,13 @@ namespace BuildBackup
                             //Console.WriteLine(target);
                             foreach (var subName in encodingList[encodingEntry.cKey.ToLower()])
                             {
-                                if (fileList.ContainsKey(target))
+                                if (fileList.TryGetValue(target, out List<string> value))
                                 {
-                                    fileList[target].Add(subName);
+                                    value.Add(subName);
                                 }
                                 else
                                 {
-                                    fileList.Add(target, new List<string>() { subName });
+                                    fileList.Add(target, [subName]);
                                 }
                             }
                             encodingList.Remove(encodingEntry.cKey.ToLower());
@@ -626,12 +631,13 @@ namespace BuildBackup
                         }
 
                         var index = cdnConfig.archives[entry.index];
-                        if (!archivedFileList.ContainsKey(index))
+                        if (!archivedFileList.TryGetValue(index, out Dictionary<string, List<string>> value))
                         {
-                            archivedFileList.Add(index, new Dictionary<string, List<string>>());
+                            value = [];
+                            archivedFileList.Add(index, value);
                         }
 
-                        archivedFileList[index].Add(fileEntry.Key, fileEntry.Value);
+                        value.Add(fileEntry.Key, fileEntry.Value);
                     }
 
                     var extractedFiles = 0;
@@ -741,7 +747,7 @@ namespace BuildBackup
                 }
                 if (args[0] == "extractfilesbyfnamelist" || args[0] == "extractfilesbyfdidlist")
                 {
-                    if (args.Length < 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list");
+                    if (args.Length < 5) throw new Exception("Not enough arguments. Need mode, buildconfig, cdnconfig, basedir, list, (product)");
 
                     var product = "wow";
                     if (args.Length == 6)
@@ -764,7 +770,7 @@ namespace BuildBackup
 
                     foreach (var entry in encoding.aEntries)
                     {
-                        if (entry.cKey.ToLower() == buildConfig.root.ToLower()) { rootHash = entry.eKeys[0].ToLower(); break; }
+                        if (entry.cKey.Equals(buildConfig.root, StringComparison.OrdinalIgnoreCase)) { rootHash = entry.eKeys[0].ToLower(); break; }
                     }
 
                     var hasher = new Jenkins96();
@@ -818,13 +824,13 @@ namespace BuildBackup
                             {
                                 var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
 
-                                if (encodingList.ContainsKey(cleanContentHash))
+                                if (encodingList.TryGetValue(cleanContentHash, out List<string> value))
                                 {
-                                    encodingList[cleanContentHash].Add(nameList[subentry.lookup]);
+                                    value.Add(nameList[subentry.lookup]);
                                 }
                                 else
                                 {
-                                    encodingList.Add(cleanContentHash, new List<string>() { nameList[subentry.lookup] });
+                                    encodingList.Add(cleanContentHash, [nameList[subentry.lookup]]);
                                 }
                             }
                         }
@@ -834,13 +840,13 @@ namespace BuildBackup
                             {
                                 var cleanContentHash = Convert.ToHexString(subentry.md5).ToLower();
 
-                                if (encodingList.ContainsKey(cleanContentHash))
+                                if (encodingList.TryGetValue(cleanContentHash, out List<string> value))
                                 {
-                                    encodingList[cleanContentHash].Add(fdidList[subentry.fileDataID]);
+                                    value.Add(fdidList[subentry.fileDataID]);
                                 }
                                 else
                                 {
-                                    encodingList.Add(cleanContentHash, new List<string>() { fdidList[subentry.fileDataID] });
+                                    encodingList.Add(cleanContentHash, [fdidList[subentry.fileDataID]]);
                                 }
 
                                 chashList.TryAdd(subentry.fileDataID, cleanContentHash);
@@ -861,13 +867,13 @@ namespace BuildBackup
                             //Console.WriteLine(target);
                             foreach (var subName in encodingList[encodingEntry.cKey.ToLower()])
                             {
-                                if (fileList.ContainsKey(target))
+                                if (fileList.TryGetValue(target, out List<string> value))
                                 {
-                                    fileList[target].Add(subName);
+                                    value.Add(subName);
                                 }
                                 else
                                 {
-                                    fileList.Add(target, new List<string>() { subName });
+                                    fileList.Add(target, [subName]);
                                 }
                             }
                             encodingList.Remove(encodingEntry.cKey.ToLower());
@@ -887,12 +893,13 @@ namespace BuildBackup
                         }
 
                         var index = cdnConfig.archives[entry.index];
-                        if (!archivedFileList.ContainsKey(index))
+                        if (!archivedFileList.TryGetValue(index, out Dictionary<string, List<string>> value))
                         {
-                            archivedFileList.Add(index, new Dictionary<string, List<string>>());
+                            value = [];
+                            archivedFileList.Add(index, value);
                         }
 
-                        archivedFileList[index].Add(fileEntry.Key, fileEntry.Value);
+                        value.Add(fileEntry.Key, fileEntry.Value);
                     }
 
                     var extractedFiles = 0;
@@ -1011,8 +1018,8 @@ namespace BuildBackup
                 {
                     if (args.Length == 4)
                     {
-                        checkPrograms = new string[] { args[1] };
-                        backupPrograms = new string[] { args[1] };
+                        checkPrograms = [args[1]];
+                        backupPrograms = [args[1]];
                         overrideBuildconfig = args[2];
                         overrideCDNconfig = args[3];
                         overrideVersions = true;
@@ -1022,8 +1029,8 @@ namespace BuildBackup
                 {
                     if (args.Length == 2)
                     {
-                        checkPrograms = new string[] { args[1] };
-                        backupPrograms = new string[] { args[1] };
+                        checkPrograms = [args[1]];
+                        backupPrograms = [args[1]];
                     }
                 }
                 if (args[0] == "dumpencrypted")
@@ -1063,18 +1070,18 @@ namespace BuildBackup
                         {
                             if (encryptedKeys.ContainsKey(entry.eKeys[i]))
                             {
-                                if (encryptedContentHashes.ContainsKey(entry.cKey))
+                                if (encryptedContentHashes.TryGetValue(entry.cKey, out List<string> value))
                                 {
-                                    encryptedContentHashes[entry.cKey].Add(encryptedKeys[entry.eKeys[i]]);
+                                    value.Add(encryptedKeys[entry.eKeys[i]]);
                                 }
                                 else
                                 {
-                                    encryptedContentHashes.Add(entry.cKey, new List<string>() { encryptedKeys[entry.eKeys[i]] });
+                                    encryptedContentHashes.Add(entry.cKey, [encryptedKeys[entry.eKeys[i]]]);
                                     encryptedContentSizes.Add(entry.cKey, entry.size);
                                 }
                             }
 
-                            if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[i].ToLower(); }
+                            if (entry.cKey.Equals(buildConfig.root, StringComparison.OrdinalIgnoreCase)) { rootKey = entry.eKeys[i].ToLower(); }
                         }
                     }
 
@@ -1085,9 +1092,8 @@ namespace BuildBackup
                         foreach (var subentry in entry.Value)
                         {
                             var md5string = Convert.ToHexString(subentry.md5);
-                            if (encryptedContentHashes.ContainsKey(md5string))
+                            if (encryptedContentHashes.TryGetValue(md5string, out List<string> stringBlocks))
                             {
-                                var stringBlocks = encryptedContentHashes[md5string];
                                 foreach (var rawStringBlock in stringBlocks)
                                 {
                                     var stringBlock = rawStringBlock;
@@ -1153,7 +1159,7 @@ namespace BuildBackup
                                 encryptedContentHashes.Add(entry.cKey);
                             }
 
-                            if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[i].ToLower(); }
+                            if (entry.cKey.Equals(buildConfig.root, StringComparison.OrdinalIgnoreCase)) { rootKey = entry.eKeys[i].ToLower(); }
                         }
 
                         for (var i = 0; i < entry.eKeys.Count; i++)
@@ -1218,7 +1224,7 @@ namespace BuildBackup
 
                     if (args.Length == 3)
                     {
-                        file = file.Take(int.Parse(args[2])).ToArray();
+                        file = [.. file.Take(int.Parse(args[2]))];
                     }
 
                     Console.Write(Encoding.UTF8.GetString(file));
@@ -1256,7 +1262,7 @@ namespace BuildBackup
                         throw new Exception("unk encryptedproduct");
                     }
 
-                    Parallel.ForEach(allFiles, file =>
+                    Parallel.ForEach(allFiles, new ParallelOptions { MaxDegreeOfParallelism = 4 }, file =>
                     {
                         //if (!file.EndsWith(".index"))
                         //    continue;
@@ -1285,7 +1291,7 @@ namespace BuildBackup
 
                         try
                         {
-                            File.WriteAllBytes(newName, BLTE.DecryptFile(Path.GetFileNameWithoutExtension(file), File.ReadAllBytes(file), "wowdevalpha"));
+                            File.WriteAllBytes(newName, BLTE.DecryptFile(Path.GetFileNameWithoutExtension(file), File.ReadAllBytes(file), "wowdev3"));
                         }
                         catch (Exception e)
                         {
@@ -1323,7 +1329,7 @@ namespace BuildBackup
                     byte[] content = File.ReadAllBytes(args[1]);
 
 
-                    using (BinaryReader bin = new BinaryReader(new MemoryStream(BLTE.Parse(content))))
+                    using (BinaryReader bin = new(new MemoryStream(BLTE.Parse(content))))
                     {
                         if (Encoding.UTF8.GetString(bin.ReadBytes(2)) != "IN") { throw new Exception("Error while parsing install file. Did BLTE header size change?"); }
 
@@ -1359,7 +1365,7 @@ namespace BuildBackup
                             install.entries[i].name = bin.ReadCString();
                             install.entries[i].contentHash = bin.ReadBytes(install.hashSize);
                             install.entries[i].size = bin.ReadUInt32(true);
-                            install.entries[i].tags = new List<string>();
+                            install.entries[i].tags = [];
                             for (var j = 0; j < install.numTags; j++)
                             {
                                 if (install.tags[j].files[i] == true)
@@ -1405,7 +1411,7 @@ namespace BuildBackup
                 {
                     var indexContent = File.ReadAllBytes(args[1]);
                     using (var ms = new MemoryStream(indexContent))
-                    using (BinaryReader bin = new BinaryReader(ms))
+                    using (BinaryReader bin = new(ms))
                     {
                         int indexEntries = indexContent.Length / 4096;
 
@@ -1462,17 +1468,11 @@ namespace BuildBackup
                     return;
                 }
             }
+            #endregion
 
             // Load programs
-            if (checkPrograms == null)
-            {
-                checkPrograms = SettingsManager.checkProducts;
-            }
-
-            if (backupPrograms == null)
-            {
-                backupPrograms = SettingsManager.backupProducts;
-            }
+            checkPrograms ??= SettingsManager.checkProducts;
+            backupPrograms ??= SettingsManager.backupProducts;
 
             var finishedCDNConfigs = new List<string>();
             var finishedEncodings = new List<string>();
@@ -1517,18 +1517,20 @@ namespace BuildBackup
                         Console.WriteLine("Error parsing versions: " + e.Message);
                     }
 
-                    if (versions.entries == null || versions.entries.Count() == 0) { Console.WriteLine("Invalid versions file for " + program + ", skipping!"); continue; }
+                    if (versions.entries == null || versions.entries.Length == 0) { Console.WriteLine("Invalid versions file for " + program + ", skipping!"); continue; }
 
-                    Console.WriteLine("Loaded " + versions.entries.Count() + " versions");
+                    Console.WriteLine("Loaded " + versions.entries.Length + " versions");
 
                     // Retrieve keyring
                     if (!string.IsNullOrEmpty(versions.entries[0].keyRing))
                         await cdn.Get(cdns.entries[0].path + "/config/" + versions.entries[0].keyRing[0] + versions.entries[0].keyRing[1] + "/" + versions.entries[0].keyRing[2] + versions.entries[0].keyRing[3] + "/" + versions.entries[0].keyRing);
                 }
 
-                if (cdns.entries == null || cdns.entries.Count() == 0) { Console.WriteLine("Invalid CDNs file for " + program + ", skipping!"); continue; }
+                if (cdns.entries == null || cdns.entries.Length == 0) { Console.WriteLine("Invalid CDNs file for " + program + ", skipping!"); continue; }
 
-                Console.WriteLine("Loaded " + cdns.entries.Count() + " cdns");
+                Console.WriteLine("Loaded " + cdns.entries.Length + " cdns");
+                
+                var decryptionKeyName = "";
 
                 if (versions.entries != null)
                 {
@@ -1537,18 +1539,19 @@ namespace BuildBackup
                         productConfig = GetProductConfig(cdns.entries[0].configPath + "/", versions.entries[0].productConfig);
                     }
 
+
+                    if (productConfig.decryptionKeyName != null && productConfig.decryptionKeyName != string.Empty)
+                    {
+                        decryptionKeyName = productConfig.decryptionKeyName;
+                    }
+
+                    cdn.decryptionKeyName = decryptionKeyName;
+
                     // Retrieve all buildconfigs
-                    for (var i = 0; i < versions.entries.Count(); i++)
+                    for (var i = 0; i < versions.entries.Length; i++)
                     {
                         GetBuildConfig(cdns.entries[0].path + "/", versions.entries[i].buildConfig);
                     }
-                }
-
-                var decryptionKeyName = "";
-
-                if (productConfig.decryptionKeyName != null && productConfig.decryptionKeyName != string.Empty)
-                {
-                    decryptionKeyName = productConfig.decryptionKeyName;
                 }
 
                 if (overrideVersions && !string.IsNullOrEmpty(overrideBuildconfig))
@@ -1581,7 +1584,7 @@ namespace BuildBackup
 
                 if (cdnConfig.builds != null)
                 {
-                    cdnBuildConfigs = new BuildConfigFile[cdnConfig.builds.Count()];
+                    cdnBuildConfigs = new BuildConfigFile[cdnConfig.builds.Length];
                 }
                 else if (cdnConfig.archives != null)
                 {
@@ -1638,7 +1641,7 @@ namespace BuildBackup
 
                     if (cdnConfig.archives != null)
                     {
-                        Console.Write("Loading " + cdnConfig.archives.Count() + " indexes..");
+                        Console.Write("Loading " + cdnConfig.archives.Length + " indexes..");
                         try
                         {
                             GetIndexes(cdns.entries[0].path + "/", cdnConfig.archives);
@@ -1681,7 +1684,7 @@ namespace BuildBackup
 
                             Console.WriteLine("..done");
 
-                            Console.Write("Downloading " + cdnConfig.archives.Count() + " archives..");
+                            Console.Write("Downloading " + cdnConfig.archives.Length + " archives..");
 
                             var archiveTasks = new List<Task>();
                             for (short i = 0; i < cdnConfig.archives.Length; i++)
@@ -1694,9 +1697,9 @@ namespace BuildBackup
                                         try
                                         {
                                             uint archiveSize = 0;
-                                            if (archiveSizes.ContainsKey(archive))
+                                            if (archiveSizes.TryGetValue(archive, out uint value))
                                             {
-                                                archiveSize = archiveSizes[archive];
+                                                archiveSize = value;
                                             }
 
                                             await cdn.Get(cdns.entries[0].path + "/data/" + archive[0] + archive[1] + "/" + archive[2] + archive[3] + "/" + archive, false, false, archiveSize, true);
@@ -1728,7 +1731,7 @@ namespace BuildBackup
                 string rootKey = "";
                 string downloadKey = "";
                 string installKey = "";
-                Dictionary<string, string> hashes = new Dictionary<string, string>();
+                Dictionary<string, string> hashes = [];
 
                 if (buildConfig.encoding != null && buildConfig.encoding.Length == 2)
                 {
@@ -1742,7 +1745,7 @@ namespace BuildBackup
 
                     try
                     {
-                        if (buildConfig.encodingSize == null || buildConfig.encodingSize.Count() < 2)
+                        if (buildConfig.encodingSize == null || buildConfig.encodingSize.Length < 2)
                         {
                             encoding = await GetEncoding(cdns.entries[0].path + "/", buildConfig.encoding[1], 0);
                         }
@@ -1772,10 +1775,10 @@ namespace BuildBackup
                     {
                         foreach (var entry in encoding.aEntries)
                         {
-                            if (entry.cKey == buildConfig.root.ToUpper()) { rootKey = entry.eKeys[0].ToLower(); }
-                            if (downloadKey == "" && entry.cKey == buildConfig.download[0].ToUpper()) { downloadKey = entry.eKeys[0].ToLower(); }
-                            if (installKey == "" && entry.cKey == buildConfig.install[0].ToUpper()) { installKey = entry.eKeys[0].ToLower(); }
-                            if (!hashes.ContainsKey(entry.eKeys[0])) { hashes.Add(entry.eKeys[0], entry.cKey); }
+                            if (entry.cKey.Equals(buildConfig.root, StringComparison.OrdinalIgnoreCase)) { rootKey = entry.eKeys[0].ToLower(); }
+                            if (downloadKey == "" && entry.cKey.Equals(buildConfig.download[0], StringComparison.OrdinalIgnoreCase)) { downloadKey = entry.eKeys[0].ToLower(); }
+                            if (installKey == "" && entry.cKey.Equals(buildConfig.install[0], StringComparison.OrdinalIgnoreCase)) { installKey = entry.eKeys[0].ToLower(); }
+                            hashes.TryAdd(entry.eKeys[0], entry.cKey);
                         }
                     }
 
@@ -1950,7 +1953,7 @@ namespace BuildBackup
 
                     if (SettingsManager.downloadPatchFiles && cdnConfig.patchArchives != null)
                     {
-                        Console.Write("Downloading " + cdnConfig.patchArchives.Count() + " patch archives..");
+                        Console.Write("Downloading " + cdnConfig.patchArchives.Length + " patch archives..");
 
                         var patchArchiveTasks = new List<Task>();
                         foreach (var archive in cdnConfig.patchArchives)
@@ -1979,7 +1982,7 @@ namespace BuildBackup
                         await Task.WhenAll(patchArchiveTasks);
                         Console.Write("..done\n");
 
-                        Console.Write("Downloading " + cdnConfig.patchArchives.Count() + " patch archive indexes..");
+                        Console.Write("Downloading " + cdnConfig.patchArchives.Length + " patch archive indexes..");
                         GetPatchIndexes(cdns.entries[0].path + "/", cdnConfig.patchArchives);
                         Console.Write("..done\n");
                     }
@@ -1988,7 +1991,7 @@ namespace BuildBackup
                 }
 
                 // Unarchived files -- files in encoding but not in indexes. Can vary per build!
-                Console.Write("Downloading " + hashes.Count() + " unarchived files..");
+                Console.Write("Downloading " + hashes.Count + " unarchived files..");
 
                 var unarchivedFileTasks = new List<Task>();
                 foreach (var entry in hashes)
@@ -2081,6 +2084,10 @@ namespace BuildBackup
                     {
                         return BLTE.Parse(BLTE.DecryptFile(target, File.ReadAllBytes(unarchivedName), "wowdevalpha"));
                     }
+                    else if (cdndir == "tpr/hse")
+                    {
+                        return BLTE.Parse(BLTE.DecryptFile(target, File.ReadAllBytes(unarchivedName), "hse1"));
+                    }
                     else
                     {
                         return BLTE.Parse(File.ReadAllBytes(unarchivedName));
@@ -2091,6 +2098,10 @@ namespace BuildBackup
                     if (cdndir == "tpr/wowdev")
                     {
                         return BLTE.DecryptFile(target, File.ReadAllBytes(unarchivedName), "wowdevalpha");
+                    }
+                    else if (cdndir == "tpr/hse")
+                    {
+                        return BLTE.DecryptFile(target, File.ReadAllBytes(unarchivedName), "hse1");
                     }
                     else
                     {
@@ -2122,7 +2133,7 @@ namespace BuildBackup
             {
                 var index = cdnConfig.archives[entry.index];
 
-                using (BinaryReader bin = new BinaryReader(new MemoryStream(cdn.Get(cdndir + "/data/" + index[0] + "" + index[1] + "/" + index[2] + "" + index[3] + "/" + index).Result, true)))
+                using (BinaryReader bin = new(new MemoryStream(cdn.Get(cdndir + "/data/" + index[0] + "" + index[1] + "/" + index[2] + "" + index[3] + "/" + index).Result, true)))
                 {
                     bin.BaseStream.Position = entry.offset;
                     try
@@ -2143,7 +2154,7 @@ namespace BuildBackup
                 }
             }
 
-            return new byte[0];
+            return [];
         }
 
         private static CDNConfigFile GetCDNconfig(string url, string hash)
@@ -2161,12 +2172,12 @@ namespace BuildBackup
                 return cdnConfig;
             }
 
-            var cdnConfigLines = content.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var cdnConfigLines = content.Split(["\n"], StringSplitOptions.RemoveEmptyEntries);
 
-            for (var i = 0; i < cdnConfigLines.Count(); i++)
+            for (var i = 0; i < cdnConfigLines.Length; i++)
             {
-                if (cdnConfigLines[i].StartsWith("#") || cdnConfigLines[i].Length == 0) { continue; }
-                var cols = cdnConfigLines[i].Split(new string[] { " = " }, StringSplitOptions.RemoveEmptyEntries);
+                if (cdnConfigLines[i].StartsWith('#') || cdnConfigLines[i].Length == 0) { continue; }
+                var cols = cdnConfigLines[i].Split([" = "], StringSplitOptions.RemoveEmptyEntries);
                 switch (cols[0])
                 {
                     case "archives":
@@ -2216,68 +2227,28 @@ namespace BuildBackup
             string content;
             var versions = new VersionsFile();
 
-            if (!SettingsManager.useRibbit)
+            using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "versions")).Result)
             {
-                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "versions")).Result)
+                if (response.IsSuccessStatusCode)
                 {
-                    if (response.IsSuccessStatusCode)
+                    using (HttpContent res = response.Content)
                     {
-                        using (HttpContent res = response.Content)
-                        {
-                            content = res.ReadAsStringAsync().Result;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("Error during retrieving HTTP versions: Received bad HTTP code " + response.StatusCode);
-                        return versions;
+                        content = res.ReadAsStringAsync().Result;
                     }
                 }
-            }
-            else
-            {
-                try
+                else
                 {
-                    var client = new Ribbit.Protocol.Client(Ribbit.Constants.Region.EU);
-                    var request = client.Request("v1/products/" + program + "/versions");
-                    content = request.ToString();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error during retrieving Ribbit versions: " + e.Message + ", trying HTTP..");
-                    try
-                    {
-                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "versions")).Result)
-                        {
-                            if (response.IsSuccessStatusCode)
-                            {
-                                using (HttpContent res = response.Content)
-                                {
-                                    content = res.ReadAsStringAsync().Result;
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("Error during retrieving HTTP versions: Received bad HTTP code " + response.StatusCode);
-                                return versions;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Error retrieving versions: " + ex.Message);
-                        return versions;
-                    }
+                    Console.WriteLine("Error during retrieving HTTP versions: Received bad HTTP code " + response.StatusCode);
                     return versions;
                 }
             }
 
             content = content.Replace("\0", "");
-            var lines = content.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = content.Split(["\n"], StringSplitOptions.RemoveEmptyEntries);
 
             var lineList = new List<string>();
 
-            for (var i = 0; i < lines.Count(); i++)
+            for (var i = 0; i < lines.Length; i++)
             {
                 if (lines[i][0] != '#')
                 {
@@ -2285,19 +2256,19 @@ namespace BuildBackup
                 }
             }
 
-            lines = lineList.ToArray();
+            lines = [.. lineList];
 
-            if (lines.Count() > 0)
+            if (lines.Length > 0)
             {
-                versions.entries = new VersionsEntry[lines.Count() - 1];
+                versions.entries = new VersionsEntry[lines.Length - 1];
 
                 var cols = lines[0].Split('|');
 
-                for (var c = 0; c < cols.Count(); c++)
+                for (var c = 0; c < cols.Length; c++)
                 {
                     var friendlyName = cols[c].Split('!').ElementAt(0);
 
-                    for (var i = 1; i < lines.Count(); i++)
+                    for (var i = 1; i < lines.Length; i++)
                     {
                         var row = lines[i].Split('|');
 
@@ -2346,73 +2317,33 @@ namespace BuildBackup
             if (program == "gryphon")
             {
                 cdns.entries = new CdnsEntry[1];
-                cdns.entries[0].hosts = new string[2] { "http://cdn.blizzard.com", "http://blzddist1-a.akamaihd.net" };
+                cdns.entries[0].hosts = ["http://cdn.blizzard.com", "http://blzddist1-a.akamaihd.net"];
                 cdns.entries[0].path = "tpr/gryphon";
                 cdns.entries[0].configPath = "configs/data/";
                 return cdns;
             }
 
-            if (!SettingsManager.useRibbit)
+            using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "cdns")).Result)
             {
-                using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "cdns")).Result)
+                if (response.IsSuccessStatusCode)
                 {
-                    if (response.IsSuccessStatusCode)
+                    using (HttpContent res = response.Content)
                     {
-                        using (HttpContent res = response.Content)
-                        {
-                            content = res.ReadAsStringAsync().Result;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("Error during retrieving HTTP cdns: Received bad HTTP code " + response.StatusCode);
-                        return cdns;
+                        content = res.ReadAsStringAsync().Result;
                     }
                 }
-            }
-            else
-            {
-
-                try
+                else
                 {
-                    var client = new Ribbit.Protocol.Client(Ribbit.Constants.Region.US);
-                    var request = client.Request("v1/products/" + program + "/cdns");
-                    content = request.ToString();
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error during retrieving Ribbit cdns: " + e.Message + ", trying HTTP..");
-                    try
-                    {
-                        using (HttpResponseMessage response = cdn.client.GetAsync(new Uri(baseUrl + "v2/products/" + program + "/" + "cdns")).Result)
-                        {
-                            if (response.IsSuccessStatusCode)
-                            {
-                                using (HttpContent res = response.Content)
-                                {
-                                    content = res.ReadAsStringAsync().Result;
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("Error during retrieving HTTP cdns: Received bad HTTP code " + response.StatusCode);
-                                return cdns;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Error retrieving CDNs file: " + ex.Message);
-                        return cdns;
-                    }
+                    Console.WriteLine("Error during retrieving HTTP cdns: Received bad HTTP code " + response.StatusCode);
+                    return cdns;
                 }
             }
 
-            var lines = content.Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = content.Split(["\n", "\r"], StringSplitOptions.RemoveEmptyEntries);
 
             var lineList = new List<string>();
 
-            for (var i = 0; i < lines.Count(); i++)
+            for (var i = 0; i < lines.Length; i++)
             {
                 if (lines[i][0] != '#')
                 {
@@ -2420,19 +2351,19 @@ namespace BuildBackup
                 }
             }
 
-            lines = lineList.ToArray();
+            lines = [.. lineList];
 
-            if (lines.Count() > 0)
+            if (lines.Length > 0)
             {
-                cdns.entries = new CdnsEntry[lines.Count() - 1];
+                cdns.entries = new CdnsEntry[lines.Length - 1];
 
                 var cols = lines[0].Split('|');
 
-                for (var c = 0; c < cols.Count(); c++)
+                for (var c = 0; c < cols.Length; c++)
                 {
                     var friendlyName = cols[c].Split('!').ElementAt(0);
 
-                    for (var i = 1; i < lines.Count(); i++)
+                    for (var i = 1; i < lines.Length; i++)
                     {
                         var row = lines[i].Split('|');
 
@@ -2446,8 +2377,8 @@ namespace BuildBackup
                                 break;
                             case "Hosts":
                                 var hosts = row[c].Split(' ');
-                                cdns.entries[i - 1].hosts = new string[hosts.Count()];
-                                for (var h = 0; h < hosts.Count(); h++)
+                                cdns.entries[i - 1].hosts = new string[hosts.Length];
+                                for (var h = 0; h < hosts.Length; h++)
                                 {
                                     cdns.entries[i - 1].hosts[h] = hosts[h];
                                 }
@@ -2468,7 +2399,7 @@ namespace BuildBackup
                     {
                         if (!cdn.cdnList.Contains(cdnHost))
                         {
-                            cdn.cdnList.Add(cdnHost);
+                            //cdn.cdnList.Add(cdnHost);
                         }
                     }
                 }
@@ -2501,9 +2432,8 @@ namespace BuildBackup
 
             dynamic json = Newtonsoft.Json.JsonConvert.DeserializeObject(content);
             if (json.all.config.decryption_key_name != null)
-            {
                 gblob.decryptionKeyName = json.all.config.decryption_key_name.Value;
-            }
+
             return gblob;
         }
 
@@ -2537,12 +2467,12 @@ namespace BuildBackup
                 return buildConfig;
             }
 
-            var lines = content.Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = content.Split(["\n"], StringSplitOptions.RemoveEmptyEntries);
 
-            for (var i = 0; i < lines.Count(); i++)
+            for (var i = 0; i < lines.Length; i++)
             {
-                if (lines[i].StartsWith("#") || lines[i].Length == 0) { continue; }
-                var cols = lines[i].Split(new string[] { " = " }, StringSplitOptions.RemoveEmptyEntries);
+                if (lines[i].StartsWith('#') || lines[i].Length == 0) { continue; }
+                var cols = lines[i].Split([" = "], StringSplitOptions.RemoveEmptyEntries);
                 switch (cols[0])
                 {
                     case "root":
@@ -2651,8 +2581,8 @@ namespace BuildBackup
 
             var returnDict = new Dictionary<string, IndexEntry>();
 
-            using (MemoryStream ms = new MemoryStream(indexContent))
-            using (BinaryReader bin = new BinaryReader(ms))
+            using (MemoryStream ms = new(indexContent))
+            using (BinaryReader bin = new(ms))
             {
                 bin.BaseStream.Position = bin.BaseStream.Length - 28;
 
@@ -2741,7 +2671,7 @@ namespace BuildBackup
 
             var list = new List<string>();
 
-            using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
+            using (BinaryReader bin = new(new MemoryStream(indexContent)))
             {
                 int indexEntries = indexContent.Length / 4096;
 
@@ -2770,7 +2700,7 @@ namespace BuildBackup
                 {
                     byte[] indexContent = cdn.Get(url + "/data/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
 
-                    using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
+                    using (BinaryReader bin = new(new MemoryStream(indexContent)))
                     {
                         int indexEntries = indexContent.Length / 4096;
 
@@ -2829,7 +2759,7 @@ namespace BuildBackup
                 {
                     byte[] indexContent = cdn.Get(url + "/patch/" + archives[i][0] + archives[i][1] + "/" + archives[i][2] + archives[i][3] + "/" + archives[i] + ".index").Result;
 
-                    using (BinaryReader bin = new BinaryReader(new MemoryStream(indexContent)))
+                    using (BinaryReader bin = new(new MemoryStream(indexContent)))
                     {
                         int indexEntries = indexContent.Length / 4096;
 
@@ -2886,8 +2816,8 @@ namespace BuildBackup
         {
             var root = new RootFile
             {
-                entriesLookup = new MultiDictionary<ulong, RootEntry>(),
-                entriesFDID = new MultiDictionary<uint, RootEntry>()
+                entriesLookup = [],
+                entriesFDID = []
             };
 
             byte[] content = cdn.Get(url + "/data/" + hash[0] + hash[1] + "/" + hash[2] + hash[3] + "/" + hash).Result;
@@ -2902,7 +2832,7 @@ namespace BuildBackup
             uint dfHeaderSize = 0;
             uint dfVersion = 0;
 
-            using (BinaryReader bin = new BinaryReader(new MemoryStream(BLTE.Parse(content))))
+            using (BinaryReader bin = new(new MemoryStream(BLTE.Parse(content))))
             {
                 var header = bin.ReadUInt32();
 
@@ -2921,6 +2851,10 @@ namespace BuildBackup
                         {
                             totalFiles = bin.ReadUInt32();
                             namedFiles = bin.ReadUInt32();
+                        }
+                        else
+                        {
+                            throw new Exception("Unsupported root version: " + dfVersion);
                         }
 
                         bin.BaseStream.Position = dfHeaderSize;
@@ -3031,7 +2965,7 @@ namespace BuildBackup
 
             if (!parseIt) return download;
 
-            using (BinaryReader bin = new BinaryReader(new MemoryStream(BLTE.Parse(content))))
+            using (BinaryReader bin = new(new MemoryStream(BLTE.Parse(content))))
             {
                 if (Encoding.UTF8.GetString(bin.ReadBytes(2)) != "DL") { throw new Exception("Error while parsing download file. Did BLTE header size change?"); }
                 download.version = bin.ReadByte();
@@ -3075,7 +3009,7 @@ namespace BuildBackup
 
             if (!parseIt) return install;
 
-            using (BinaryReader bin = new BinaryReader(new MemoryStream(BLTE.Parse(content))))
+            using (BinaryReader bin = new(new MemoryStream(BLTE.Parse(content))))
             {
                 if (Encoding.UTF8.GetString(bin.ReadBytes(2)) != "IN") { throw new Exception("Error while parsing install file. Did BLTE header size change?"); }
 
@@ -3111,7 +3045,7 @@ namespace BuildBackup
                     install.entries[i].name = bin.ReadCString();
                     install.entries[i].contentHash = bin.ReadBytes(install.hashSize);
                     install.entries[i].size = bin.ReadUInt32(true);
-                    install.entries[i].tags = new List<string>();
+                    install.entries[i].tags = [];
                     for (var j = 0; j < install.numTags; j++)
                     {
                         if (install.tags[j].files[i] == true)
@@ -3174,7 +3108,7 @@ namespace BuildBackup
                     stringBlockEntries.Add(bin.ReadCString());
                 }
 
-                encoding.stringBlockEntries = stringBlockEntries.ToArray();
+                encoding.stringBlockEntries = [.. stringBlockEntries];
             }
             else
             {
@@ -3199,19 +3133,19 @@ namespace BuildBackup
 
             var tableAstart = bin.BaseStream.Position;
 
-            List<EncodingFileEntry> entries = new List<EncodingFileEntry>();
+            List<EncodingFileEntry> entries = [];
 
             for (int i = 0; i < encoding.numEntriesA; i++)
             {
                 ushort keysCount;
                 while ((keysCount = bin.ReadUInt16()) != 0)
                 {
-                    EncodingFileEntry entry = new EncodingFileEntry()
+                    EncodingFileEntry entry = new()
                     {
                         keyCount = keysCount,
                         size = bin.ReadUInt32(true),
                         cKey = Convert.ToHexString(bin.ReadBytes(16)),
-                        eKeys = new List<string>()
+                        eKeys = []
                     };
 
                     for (int key = 0; key < entry.keyCount; key++)
@@ -3226,7 +3160,7 @@ namespace BuildBackup
                 if (remaining > 0) { bin.BaseStream.Position += remaining; }
             }
 
-            encoding.aEntries = entries.ToArray();
+            encoding.aEntries = [.. entries];
 
             if (!parseTableB)
             {
@@ -3251,7 +3185,7 @@ namespace BuildBackup
 
             var tableBstart = bin.BaseStream.Position;
 
-            encoding.bEntries = new Dictionary<string, EncodingFileDescEntry>();
+            encoding.bEntries = [];
 
             while (bin.BaseStream.Position < tableBstart + 4096 * encoding.numEntriesB)
             {
@@ -3265,7 +3199,7 @@ namespace BuildBackup
 
                 var key = Convert.ToHexString(bin.ReadBytes(16));
 
-                EncodingFileDescEntry entry = new EncodingFileDescEntry()
+                EncodingFileDescEntry entry = new()
                 {
                     stringIndex = bin.ReadUInt32(true),
                     compressedSize = bin.ReadUInt40(true)
@@ -3298,7 +3232,7 @@ namespace BuildBackup
 
             if (!parseIt) return patchFile;
 
-            using (BinaryReader bin = new BinaryReader(new MemoryStream(content)))
+            using (BinaryReader bin = new(new MemoryStream(content)))
             {
                 if (Encoding.UTF8.GetString(bin.ReadBytes(2)) != "PA") { throw new Exception("Error while parsing patch file!"); }
 
@@ -3330,9 +3264,11 @@ namespace BuildBackup
                     bin.BaseStream.Position = patchFile.blocks[i].blockOffset;
                     while (bin.BaseStream.Position <= patchFile.blocks[i].blockOffset + 0x10000)
                     {
-                        var file = new BlockFile();
+                        var file = new BlockFile
+                        {
+                            numPatches = bin.ReadByte()
+                        };
 
-                        file.numPatches = bin.ReadByte();
                         if (file.numPatches == 0) break;
                         file.targetFileContentKey = bin.ReadBytes(patchFile.fileKeySize);
                         file.decodedSize = bin.ReadUInt40(true);
@@ -3341,21 +3277,23 @@ namespace BuildBackup
 
                         for (var j = 0; j < file.numPatches; j++)
                         {
-                            var filePatch = new FilePatch();
-                            filePatch.sourceFileEncodingKey = bin.ReadBytes(patchFile.fileKeySize);
-                            filePatch.decodedSize = bin.ReadUInt40(true);
-                            filePatch.patchEncodingKey = bin.ReadBytes(patchFile.patchKeySize);
-                            filePatch.patchSize = bin.ReadUInt32(true);
-                            filePatch.patchIndex = bin.ReadByte();
+                            var filePatch = new FilePatch
+                            {
+                                sourceFileEncodingKey = bin.ReadBytes(patchFile.fileKeySize),
+                                decodedSize = bin.ReadUInt40(true),
+                                patchEncodingKey = bin.ReadBytes(patchFile.patchKeySize),
+                                patchSize = bin.ReadUInt32(true),
+                                patchIndex = bin.ReadByte()
+                            };
                             filePatches.Add(filePatch);
                         }
 
-                        file.patches = filePatches.ToArray();
+                        file.patches = [.. filePatches];
 
                         files.Add(file);
                     }
 
-                    patchFile.blocks[i].files = files.ToArray();
+                    patchFile.blocks[i].files = [.. files];
                     bin.BaseStream.Position = prevPos;
                 }
             }
@@ -3366,14 +3304,19 @@ namespace BuildBackup
         {
             if (!File.Exists("listfile.txt") || DateTime.Now.AddHours(-1) > File.GetLastWriteTime("listfile.txt"))
             {
-                using (var client = new System.Net.WebClient())
-                using (var stream = new MemoryStream())
+                using (var client = new HttpClient())
                 {
-                    client.Headers[System.Net.HttpRequestHeader.AcceptEncoding] = "gzip";
-                    client.Headers[System.Net.HttpRequestHeader.UserAgent] = "BuildBackup";
-                    using (var responseStream = new System.IO.Compression.GZipStream(client.OpenRead("https://github.com/wowdev/wow-listfile/raw/master/listfile.txt"), System.IO.Compression.CompressionMode.Decompress))
+                    client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
+                    client.DefaultRequestHeaders.Add("User-Agent", "BuildBackup");
+
+                    var response = client.GetAsync("https://github.com/wowdev/wow-listfile/releases/latest/download/verified-listfile.csv").Result;
+                    response.EnsureSuccessStatusCode();
+
+                    using (var responseStream = response.Content.ReadAsStreamAsync().Result)
+                    using (var decompressedStream = new System.IO.Compression.GZipStream(responseStream, System.IO.Compression.CompressionMode.Decompress))
+                    using (var stream = new MemoryStream())
                     {
-                        responseStream.CopyTo(stream);
+                        decompressedStream.CopyTo(stream);
                         File.WriteAllBytes("listfile.txt", stream.ToArray());
                     }
                 }

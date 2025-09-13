@@ -6,15 +6,13 @@ namespace BuildBackup
     {
         public void Add(K key, V value)
         {
-            List<V> hset;
-            if (TryGetValue(key, out hset))
+            if (TryGetValue(key, out List<V> hset))
             {
                 hset.Add(value);
             }
             else
             {
-                hset = new List<V>();
-                hset.Add(value);
+                hset = [value];
                 base[key] = hset;
             }
         }

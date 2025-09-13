@@ -133,7 +133,7 @@ namespace System.IO
             byte b;
             while ((b = reader.ReadByte()) != 0)
                 bytes.Add(b);
-            return encoding.GetString(bytes.ToArray());
+            return encoding.GetString([.. bytes]);
         }
 
         public static void WriteCString(this BinaryWriter writer, string str)

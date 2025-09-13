@@ -15,9 +15,9 @@ namespace BuildBackup
             }
         }
 
-        private static Dictionary<ulong, byte[]> keys = new Dictionary<ulong, byte[]>();
+        private static Dictionary<ulong, byte[]> keys = [];
 
-        private static Salsa20 salsa = new Salsa20();
+        private static Salsa20 salsa = new();
 
         public static Salsa20 SalsaInstance => salsa;
 
@@ -29,9 +29,9 @@ namespace BuildBackup
 
         public static void LoadKeys()
         {
-            if (!File.Exists("../tactkeys/TACTKeys/WoW.txt")) return;
+            if (!File.Exists("WoW.txt")) return;
 
-            foreach (var line in File.ReadAllLines("../tactkeys/TACTKeys/WoW.txt"))
+            foreach (var line in File.ReadAllLines("WoW.txt"))
             {
                 var splitLine = line.Split(' ');
                 var lookup = ulong.Parse(splitLine[0], System.Globalization.NumberStyles.HexNumber);

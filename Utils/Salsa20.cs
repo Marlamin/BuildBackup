@@ -18,8 +18,8 @@ namespace BuildBackup
         public Salsa20()
         {
             // set legal values
-            LegalBlockSizesValue = new[] { new KeySizes(512, 512, 0) };
-            LegalKeySizesValue = new[] { new KeySizes(128, 256, 128) };
+            LegalBlockSizesValue = [new KeySizes(512, 512, 0)];
+            LegalKeySizesValue = [new KeySizes(128, 256, 128)];
 
             // set default values
             BlockSizeValue = 512;
@@ -127,7 +127,7 @@ namespace BuildBackup
                 throw new CryptographicException("Invalid IV size; it must be 8 bytes.");
         }
 
-        private static Random rnd = new Random();
+        private static Random rnd = new();
 
         // Returns a new byte array containing the specified number of random bytes.
         private static byte[] GetRandomBytes(int byteCount)

@@ -11,6 +11,7 @@ namespace BuildBackup
         public HttpClient client;
         public string cacheDir;
         public List<string> cdnList;
+        public string decryptionKeyName;
 
         public async Task<uint> GetRemoteFileSize(string path)
         {
@@ -139,7 +140,7 @@ namespace BuildBackup
 
                 if (!found)
                 {
-                    Logger.WriteLine("Exhausted all CDNs looking for file " + Path.GetFileNameWithoutExtension(path) + ", cannot retrieve it!", true);
+                    Logger.WriteLine("Exhausted all CDNs looking for file " + path + ", cannot retrieve it!", true);
                 }
                 else
                 {
@@ -150,26 +151,14 @@ namespace BuildBackup
 
             if (returnstream)
             {
-                if (path.Contains("tpr/wowdev"))
-                {
-                    return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), "wowdevalpha"));
-                }
-                else if (path.Contains("tpr/fenrisdev"))
-                {
-                    return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), "fenrisdev"));
-                }
-                else if (path.Contains("tpr/fenrisevent"))
-                {
-                    return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), "fenrise"));
-                }
+                if (!string.IsNullOrEmpty(decryptionKeyName))
+                    return await Task.FromResult(BLTE.DecryptFile(Path.GetFileNameWithoutExtension(path), await File.ReadAllBytesAsync(Path.Combine(cacheDir, path)), decryptionKeyName));
                 else
-                {
                     return await File.ReadAllBytesAsync(Path.Combine(cacheDir, path));
-                }
             }
             else
             {
-                return new byte[0];
+                return [];
             }
         }
     }

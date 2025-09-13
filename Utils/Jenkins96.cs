@@ -8,7 +8,7 @@ namespace BuildBackup
     public class Jenkins96 : HashAlgorithm
     {
         private ulong hashValue;
-        private static byte[] fakeHash = new byte[0];
+        private static byte[] fakeHash = [];
 
         private uint rot(uint x, int k)
         {
